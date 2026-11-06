@@ -1,0 +1,6 @@
+{
+  "name": "Dash City: Escape Run",
+  "description": "High-octane 3D endless runner game inspired by Subway Surfers. Escape the police across neon cities, railway tracks, and moving trains on PC and mobile.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
