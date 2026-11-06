@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Check, Lock, Flame, Zap, Magnet, Shield, ArrowUpCircle, ShoppingBag, Plus } from 'lucide-react';
+import { X, Check, Lock, Flame, Zap, Magnet, Shield, ArrowUpCircle, ShoppingBag, Plus, Rocket, FastForward, Swords } from 'lucide-react';
 import { HOVERBOARDS } from '../game/storage';
 import { GameSaveData, HoverboardDef } from '../game/types';
 import { audio } from '../game/audio';
@@ -404,6 +404,138 @@ export const ShopModal: React.FC<ShopModalProps> = ({ saveData, onUpdateSave, on
                     onClick={() => handleUpgradePowerUp('superJump')}
                     disabled={saveData.coins < saveData.powerUpLevels.superJump * 1000}
                     className="text-xs font-black uppercase bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white px-4 py-2 rounded-xl cursor-pointer"
+                  >
+                    Upgrade
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Super Speed Boost */}
+            <div className="p-5 rounded-3xl bg-slate-950/60 border border-slate-800 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-purple-500/20 text-purple-400 flex items-center justify-center border border-purple-500/30">
+                    <FastForward size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-extrabold text-white">Super Speed Booster</h3>
+                    <p className="text-xs text-slate-400">Surges running speed forward with supersonic sonic trails</p>
+                  </div>
+                </div>
+
+                <div className="flex gap-1.5 mt-4">
+                  {[1, 2, 3, 4, 5].map((lvl) => (
+                    <div
+                      key={lvl}
+                      className={`h-2.5 flex-1 rounded-full ${
+                        lvl <= saveData.powerUpLevels.superSpeed ? 'bg-purple-500' : 'bg-slate-800'
+                      }`}
+                    />
+                  ))}
+                </div>
+                <div className="text-[11px] font-bold text-slate-400 mt-1">
+                  Level {saveData.powerUpLevels.superSpeed} of 5 ({12 + saveData.powerUpLevels.superSpeed * 3}s duration)
+                </div>
+              </div>
+
+              <div className="mt-4 pt-3 border-t border-slate-800 flex justify-between items-center">
+                <span className="text-xs font-bold text-yellow-400">
+                  {saveData.powerUpLevels.superSpeed >= 5 ? 'MAX LEVEL' : `${saveData.powerUpLevels.superSpeed * 1000} 🪙`}
+                </span>
+                {saveData.powerUpLevels.superSpeed < 5 && (
+                  <button
+                    onClick={() => handleUpgradePowerUp('superSpeed')}
+                    disabled={saveData.coins < saveData.powerUpLevels.superSpeed * 1000}
+                    className="text-xs font-black uppercase bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white px-4 py-2 rounded-xl cursor-pointer"
+                  >
+                    Upgrade
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Power Punch */}
+            <div className="p-5 rounded-3xl bg-slate-950/60 border border-slate-800 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-red-500/20 text-red-400 flex items-center justify-center border border-red-500/30">
+                    <Swords size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-extrabold text-white">Power Punch Impact</h3>
+                    <p className="text-xs text-slate-400">Charged cyber fist that smashes incoming trains & hurdles [F / Tap]</p>
+                  </div>
+                </div>
+
+                <div className="flex gap-1.5 mt-4">
+                  {[1, 2, 3, 4, 5].map((lvl) => (
+                    <div
+                      key={lvl}
+                      className={`h-2.5 flex-1 rounded-full ${
+                        lvl <= saveData.powerUpLevels.powerPunch ? 'bg-red-500' : 'bg-slate-800'
+                      }`}
+                    />
+                  ))}
+                </div>
+                <div className="text-[11px] font-bold text-slate-400 mt-1">
+                  Level {saveData.powerUpLevels.powerPunch} of 5 ({15 + saveData.powerUpLevels.powerPunch * 3}s duration)
+                </div>
+              </div>
+
+              <div className="mt-4 pt-3 border-t border-slate-800 flex justify-between items-center">
+                <span className="text-xs font-bold text-yellow-400">
+                  {saveData.powerUpLevels.powerPunch >= 5 ? 'MAX LEVEL' : `${saveData.powerUpLevels.powerPunch * 1000} 🪙`}
+                </span>
+                {saveData.powerUpLevels.powerPunch < 5 && (
+                  <button
+                    onClick={() => handleUpgradePowerUp('powerPunch')}
+                    disabled={saveData.coins < saveData.powerUpLevels.powerPunch * 1000}
+                    className="text-xs font-black uppercase bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white px-4 py-2 rounded-xl cursor-pointer"
+                  >
+                    Upgrade
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Jetpack */}
+            <div className="p-5 rounded-3xl bg-slate-950/60 border border-slate-800 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center border border-cyan-500/30">
+                    <Rocket size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-extrabold text-white">Skyflight Jetpack</h3>
+                    <p className="text-xs text-slate-400">Rockets runner high into the sky above trains to collect floating gold</p>
+                  </div>
+                </div>
+
+                <div className="flex gap-1.5 mt-4">
+                  {[1, 2, 3, 4, 5].map((lvl) => (
+                    <div
+                      key={lvl}
+                      className={`h-2.5 flex-1 rounded-full ${
+                        lvl <= saveData.powerUpLevels.jetpack ? 'bg-cyan-500' : 'bg-slate-800'
+                      }`}
+                    />
+                  ))}
+                </div>
+                <div className="text-[11px] font-bold text-slate-400 mt-1">
+                  Level {saveData.powerUpLevels.jetpack} of 5 ({14 + saveData.powerUpLevels.jetpack * 3}s duration)
+                </div>
+              </div>
+
+              <div className="mt-4 pt-3 border-t border-slate-800 flex justify-between items-center">
+                <span className="text-xs font-bold text-yellow-400">
+                  {saveData.powerUpLevels.jetpack >= 5 ? 'MAX LEVEL' : `${saveData.powerUpLevels.jetpack * 1000} 🪙`}
+                </span>
+                {saveData.powerUpLevels.jetpack < 5 && (
+                  <button
+                    onClick={() => handleUpgradePowerUp('jetpack')}
+                    disabled={saveData.coins < saveData.powerUpLevels.jetpack * 1000}
+                    className="text-xs font-black uppercase bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white px-4 py-2 rounded-xl cursor-pointer"
                   >
                     Upgrade
                   </button>

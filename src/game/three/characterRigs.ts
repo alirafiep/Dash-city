@@ -217,6 +217,72 @@ export class PlayerRig {
     this.group.add(this.hoverboardGroup);
 
     this.createHoverboardMesh();
+
+    // 8. Jetpack (mounted on back, visible when active)
+    this.jetpackGroup = new THREE.Group();
+    this.jetpackGroup.position.set(0, 0.25, -0.22);
+    this.jetpackGroup.visible = false;
+    this.torso.add(this.jetpackGroup);
+    this.createJetpackMesh();
+
+    // 9. Punch Energy Aura (on right fist)
+    const punchAuraGeo = new THREE.SphereGeometry(0.18, 12, 12);
+    const punchAuraMat = new THREE.MeshBasicMaterial({
+      color: 0xf97316,
+      transparent: true,
+      opacity: 0.8,
+    });
+    this.punchAuraMesh = new THREE.Mesh(punchAuraGeo, punchAuraMat);
+    this.punchAuraMesh.position.set(0, -0.52, 0);
+    this.punchAuraMesh.visible = false;
+    this.rightArmPivot.add(this.punchAuraMesh);
+  }
+
+  private jetpackGroup: THREE.Group;
+  private jetpackFlames: THREE.Mesh[] = [];
+  private punchAuraMesh: THREE.Mesh;
+
+  private createJetpackMesh() {
+    const canisterMat = new THREE.MeshStandardMaterial({
+      color: 0x0284c7,
+      metalness: 0.9,
+      roughness: 0.2,
+    });
+    const stripeMat = new THREE.MeshStandardMaterial({
+      color: 0xfacc15,
+      roughness: 0.3,
+    });
+    const flameMat = new THREE.MeshBasicMaterial({ color: 0xf97316 });
+
+    // Dual Rocket Cylinders
+    [-0.14, 0.14].forEach((x) => {
+      const canister = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.55, 8), canisterMat);
+      canister.position.set(x, 0, 0);
+      this.jetpackGroup.add(canister);
+
+      const cap = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 8), stripeMat);
+      cap.position.set(x, 0.27, 0);
+      this.jetpackGroup.add(cap);
+
+      const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.12, 8), stripeMat);
+      nozzle.position.set(x, -0.32, 0);
+      this.jetpackGroup.add(nozzle);
+
+      // Rocket flame cone
+      const flame = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.35, 8), flameMat);
+      flame.rotation.x = Math.PI;
+      flame.position.set(x, -0.52, 0);
+      this.jetpackGroup.add(flame);
+      this.jetpackFlames.push(flame);
+    });
+  }
+
+  public setJetpackVisible(visible: boolean) {
+    this.jetpackGroup.visible = visible;
+  }
+
+  public setPunchAura(visible: boolean) {
+    this.punchAuraMesh.visible = visible;
   }
 
   private createHoverboardMesh() {
@@ -255,11 +321,66 @@ export class PlayerRig {
 
   public animate(
     time: number,
-    state: 'RUN' | 'JUMP' | 'SLIDE' | 'HOVER' | 'STUMBLE' | 'BUSTED',
+    state: 'RUN' | 'JUMP' | 'SLIDE' | 'HOVER' | 'STUMBLE' | 'BUSTED' | 'CLIMB' | 'PUNCH' | 'JETPACK',
     speedRatio: number,
     laneOffsetRatio = 0
   ) {
     const runFreq = (speedRatio * 14);
+
+    // Punch aura toggle
+    this.punchAuraMesh.visible = (state === 'PUNCH');
+    // Jetpack toggle
+    this.jetpackGroup.visible = (state === 'JETPACK');
+
+    if (state === 'PUNCH') {
+      // Powerful forward lunging punch
+      this.torso.rotation.x = 0.32;
+      this.torso.position.y = 1.05;
+      this.rightArmPivot.rotation.x = -1.65; // Direct punch forward
+      this.rightArmPivot.rotation.y = -0.2;
+      this.rightArmPivot.rotation.z = 0;
+      this.leftArmPivot.rotation.x = 0.6; // Guard position
+      this.leftLegPivot.rotation.x = -0.6;
+      this.rightLegPivot.rotation.x = 0.4;
+      return;
+    }
+
+    if (state === 'JETPACK') {
+      // High-altitude superhero flight
+      this.hoverboardGroup.visible = false;
+      this.torso.rotation.x = 0.82; // Streamlined forward flight
+      this.torso.position.y = 1.1 + Math.sin(time * 6) * 0.06;
+      this.torso.rotation.z = -laneOffsetRatio * 0.4; // Bank in turns
+
+      this.leftArmPivot.rotation.x = -1.4;
+      this.rightArmPivot.rotation.x = -1.4;
+      this.leftArmPivot.rotation.z = -0.3;
+      this.rightArmPivot.rotation.z = 0.3;
+
+      this.leftLegPivot.rotation.x = 0.75;
+      this.rightLegPivot.rotation.x = 0.7;
+
+      // Rocket flame flicker
+      this.jetpackFlames.forEach((f) => {
+        f.scale.set(1, 0.75 + Math.random() * 0.6, 1);
+      });
+      return;
+    }
+
+    if (state === 'CLIMB') {
+      // Parkour vault / ladder climb onto roof
+      this.hoverboardGroup.visible = false;
+      this.torso.rotation.x = 0.2;
+      this.torso.position.y = 1.05;
+      const climbCycle = Math.sin(time * 20);
+      this.leftArmPivot.rotation.x = -1.9 + climbCycle * 0.4;
+      this.rightArmPivot.rotation.x = -1.9 - climbCycle * 0.4;
+      this.leftArmPivot.rotation.z = -0.2;
+      this.rightArmPivot.rotation.z = 0.2;
+      this.leftLegPivot.rotation.x = -0.6 - climbCycle * 0.5;
+      this.rightLegPivot.rotation.x = -0.6 + climbCycle * 0.5;
+      return;
+    }
 
     if (state === 'BUSTED') {
       // Fall back animation

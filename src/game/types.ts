@@ -53,6 +53,8 @@ export interface HoverboardDef {
 export interface PowerUpActiveState {
   magnet: number; // remaining seconds
   superJump: number;
+  superSpeed: number;
+  powerPunch: number; // active duration or punch energy
   jetpack: number;
   shield: number;
   doubleCoins: number;
@@ -62,6 +64,8 @@ export interface PowerUpActiveState {
 export interface PowerUpLevels {
   magnet: number;
   superJump: number;
+  superSpeed: number;
+  powerPunch: number;
   jetpack: number;
   shield: number;
   doubleCoins: number;

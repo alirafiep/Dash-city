@@ -60,6 +60,8 @@ export default function App() {
   const [hudPowerUps, setHudPowerUps] = useState<PowerUpActiveState>({
     magnet: 0,
     superJump: 0,
+    superSpeed: 0,
+    powerPunch: 0,
     jetpack: 0,
     shield: 0,
     doubleCoins: 0,
@@ -262,6 +264,9 @@ export default function App() {
       } else if (e.code === 'KeyS' || e.code === 'ArrowDown') {
         e.preventDefault();
         engineRef.current?.slide();
+      } else if (e.code === 'KeyF' || e.code === 'KeyE') {
+        e.preventDefault();
+        engineRef.current?.punch();
       } else if (e.code === 'Escape') {
         handlePause();
       }
@@ -351,6 +356,7 @@ export default function App() {
           showOnScreenControls={saveData.settings.showOnScreenControls}
           onPause={handlePause}
           onDeployHoverboard={() => engineRef.current?.activateHoverboard()}
+          onPunch={() => engineRef.current?.punch()}
           onMoveLeft={() => engineRef.current?.moveLeft()}
           onMoveRight={() => engineRef.current?.moveRight()}
           onJump={() => engineRef.current?.jump()}

@@ -24,7 +24,16 @@ export interface CollectibleInstance {
   lane: number;
   z: number;
   y: number;
-  type: 'COIN' | 'DIAMOND' | 'POWERUP_MAGNET' | 'POWERUP_2X' | 'POWERUP_SHIELD' | 'POWERUP_JUMP';
+  type:
+    | 'COIN'
+    | 'DIAMOND'
+    | 'POWERUP_MAGNET'
+    | 'POWERUP_2X'
+    | 'POWERUP_SHIELD'
+    | 'POWERUP_JUMP'
+    | 'POWERUP_SPEED'
+    | 'POWERUP_PUNCH'
+    | 'POWERUP_JETPACK';
   collected?: boolean;
   initialY: number;
 }
@@ -427,22 +436,50 @@ export class WorldChunk {
     cab.position.set(0, height - 1.2, length / 2 + 0.1);
     train.add(cab);
 
-    // Headlights
-    const lightMat = new THREE.MeshBasicMaterial({ color: 0xfef08a });
-    const hlL = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 8), lightMat);
-    hlL.position.set(-0.8, 1.2, length / 2 + 0.1);
-    const hlR = hlL.clone();
-    hlR.position.x = 0.8;
-    train.add(hlL, hlR);
+    // Side & Rear Climbing Ladders / Grab Handles
+    // Left & right ladders allow smooth climbing onto roof from either side!
+    const ladderMat = this.materials.hazardMaterial;
+    const rungGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.7, 6);
+    rungGeo.rotateZ(Math.PI / 2);
 
-    // Spotlights shining forward
-    if (isMoving) {
-      const spot = new THREE.SpotLight(0xfef08a, 4, 30, Math.PI / 6, 0.4);
-      spot.position.set(0, 1.2, length / 2 + 0.2);
-      spot.target.position.set(0, 0, length / 2 + 25);
-      train.add(spot);
-      train.add(spot.target);
+    // Left and Right Ladders
+    [-1, 1].forEach((side) => {
+      const ladderX = side * (width / 2 + 0.04);
+      // Place ladders at mid and rear sections of train
+      [-3.5, 3.5].forEach((ladderZ) => {
+        // Vertical side rails
+        const railGeo = new THREE.CylinderGeometry(0.03, 0.03, height, 6);
+        const rail1 = new THREE.Mesh(railGeo, this.materials.railSteelMaterial);
+        rail1.position.set(ladderX, height / 2, ladderZ - 0.35);
+        const rail2 = rail1.clone();
+        rail2.position.z = ladderZ + 0.35;
+        train.add(rail1, rail2);
+
+        // Horizontal rungs from ground up to roof
+        for (let y = 0.6; y <= height; y += 0.5) {
+          const rung = new THREE.Mesh(rungGeo, ladderMat);
+          rung.position.set(ladderX, y, ladderZ);
+          train.add(rung);
+        }
+
+        // Top grab handle arched over the roof
+        const handleGeo = new THREE.BoxGeometry(0.12, 0.25, 0.8);
+        const handle = new THREE.Mesh(handleGeo, this.materials.hazardMaterial);
+        handle.position.set(ladderX, height + 0.12, ladderZ);
+        train.add(handle);
+      });
+    });
+
+    // Rear End Climbing Ladder
+    const rearZ = -length / 2 - 0.04;
+    for (let y = 0.6; y <= height; y += 0.5) {
+      const rearRung = new THREE.Mesh(rungGeo, ladderMat);
+      rearRung.position.set(0, y, rearZ);
+      train.add(rearRung);
     }
+
+    // Lock train rotation strictly - train is 100% rigid and will never tilt, shake or derail
+    train.rotation.set(0, 0, 0);
 
     return train;
   }
@@ -548,7 +585,7 @@ export class WorldChunk {
       }
 
       // Occasional Power-up box
-      if (Math.random() < 0.12) {
+      if (Math.random() < 0.22) {
         const pZ = -35;
         if (!hasObstacleNear(pZ)) {
           const powerTypes: Array<CollectibleInstance['type']> = [
@@ -556,10 +593,18 @@ export class WorldChunk {
             'POWERUP_2X',
             'POWERUP_SHIELD',
             'POWERUP_JUMP',
+            'POWERUP_SPEED',
+            'POWERUP_PUNCH',
+            'POWERUP_JETPACK',
           ];
           const chosen = powerTypes[Math.floor(Math.random() * powerTypes.length)];
           this.addPowerUpToken(laneIdx, laneX, pZ, chosen);
         }
+      }
+
+      // High-altitude Sky Coins (for Jetpack flight!)
+      for (let sz = -10; sz >= -50; sz -= 6) {
+        this.addCoin(laneIdx, laneX, sz, 7.5);
       }
     });
   }
@@ -610,33 +655,46 @@ export class WorldChunk {
     type: CollectibleInstance['type']
   ) {
     const group = new THREE.Group();
-    const boxGeo = new THREE.BoxGeometry(0.8, 0.8, 0.8);
     let color = 0xef4444;
-    if (type === 'POWERUP_MAGNET') color = 0xec4899;
-    if (type === 'POWERUP_2X') color = 0x3b82f6;
-    if (type === 'POWERUP_SHIELD') color = 0x10b981;
-    if (type === 'POWERUP_JUMP') color = 0xf59e0b;
+    let label = '⚡';
 
+    if (type === 'POWERUP_MAGNET') { color = 0xec4899; label = '🧲'; }
+    else if (type === 'POWERUP_2X') { color = 0x3b82f6; label = '2X'; }
+    else if (type === 'POWERUP_SHIELD') { color = 0x10b981; label = '🛡️'; }
+    else if (type === 'POWERUP_JUMP') { color = 0xf59e0b; label = '👟'; }
+    else if (type === 'POWERUP_SPEED') { color = 0x06b6d4; label = '⚡'; }
+    else if (type === 'POWERUP_PUNCH') { color = 0xf97316; label = '🥊'; }
+    else if (type === 'POWERUP_JETPACK') { color = 0x8b5cf6; label = '🚀'; }
+
+    const boxGeo = new THREE.BoxGeometry(0.85, 0.85, 0.85);
     const boxMat = new THREE.MeshStandardMaterial({
       color,
       emissive: color,
-      emissiveIntensity: 0.4,
-      metalness: 0.6,
-      roughness: 0.2,
+      emissiveIntensity: 0.5,
+      metalness: 0.7,
+      roughness: 0.15,
     });
     const box = new THREE.Mesh(boxGeo, boxMat);
     box.castShadow = true;
     group.add(box);
-    group.position.set(x, 1.2, z);
+
+    // Outer rotating glowing crystal ring
+    const ringGeo = new THREE.TorusGeometry(0.65, 0.05, 8, 16);
+    const ringMat = new THREE.MeshBasicMaterial({ color });
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.rotation.x = Math.PI / 2;
+    group.add(ring);
+
+    group.position.set(x, 1.25, z);
     this.group.add(group);
 
     this.collectibles.push({
       mesh: group,
       lane: laneIdx,
       z: this.baseZ + z,
-      y: 1.2,
+      y: 1.25,
       type,
-      initialY: 1.2,
+      initialY: 1.25,
     });
   }
 }

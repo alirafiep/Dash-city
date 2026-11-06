@@ -15,6 +15,7 @@ interface GameHUDProps {
   showOnScreenControls: boolean;
   onPause: () => void;
   onDeployHoverboard: () => void;
+  onPunch: () => void;
   onMoveLeft: () => void;
   onMoveRight: () => void;
   onJump: () => void;
@@ -34,6 +35,7 @@ export const GameHUD: React.FC<GameHUDProps> = ({
   showOnScreenControls,
   onPause,
   onDeployHoverboard,
+  onPunch,
   onMoveLeft,
   onMoveRight,
   onJump,
@@ -105,8 +107,62 @@ export const GameHUD: React.FC<GameHUDProps> = ({
         </div>
       </div>
 
-      {/* Active Power-up Bars */}
-      <div className="flex flex-col gap-2 max-w-xs z-20 pointer-events-none mt-2">
+      {/* Active Power-up Bars - All 7 Subway Surfers-style abilities */}
+      <div className="flex flex-col gap-1.5 max-w-xs z-20 pointer-events-none mt-2">
+        {powerUps.jetpack > 0 && (
+          <div className="flex items-center gap-2 bg-slate-900/90 backdrop-blur-sm border border-purple-500/80 rounded-lg px-2.5 py-1 text-xs shadow-lg shadow-purple-500/20">
+            <span className="text-base">🚀</span>
+            <div className="flex-1">
+              <div className="flex justify-between text-[10px] font-black text-purple-300">
+                <span>JETPACK SKY FLIGHT</span>
+                <span>{Math.ceil(powerUps.jetpack)}s</span>
+              </div>
+              <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden mt-0.5">
+                <div
+                  className="bg-purple-500 h-full rounded-full transition-all duration-200"
+                  style={{ width: `${(powerUps.jetpack / 20) * 100}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {powerUps.superSpeed > 0 && (
+          <div className="flex items-center gap-2 bg-slate-900/90 backdrop-blur-sm border border-cyan-500/80 rounded-lg px-2.5 py-1 text-xs shadow-lg shadow-cyan-500/20">
+            <span className="text-base">⚡</span>
+            <div className="flex-1">
+              <div className="flex justify-between text-[10px] font-black text-cyan-300">
+                <span>SUPER SPEED BOOST</span>
+                <span>{Math.ceil(powerUps.superSpeed)}s</span>
+              </div>
+              <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden mt-0.5">
+                <div
+                  className="bg-cyan-400 h-full rounded-full transition-all duration-200"
+                  style={{ width: `${(powerUps.superSpeed / 18) * 100}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {powerUps.powerPunch > 0 && (
+          <div className="flex items-center gap-2 bg-slate-900/90 backdrop-blur-sm border border-orange-500/80 rounded-lg px-2.5 py-1 text-xs shadow-lg shadow-orange-500/20">
+            <span className="text-base">🥊</span>
+            <div className="flex-1">
+              <div className="flex justify-between text-[10px] font-black text-orange-300">
+                <span>POWER PUNCH READY [F]</span>
+                <span>{Math.ceil(powerUps.powerPunch)}s</span>
+              </div>
+              <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden mt-0.5">
+                <div
+                  className="bg-orange-500 h-full rounded-full transition-all duration-200"
+                  style={{ width: `${(powerUps.powerPunch / 20) * 100}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
         {powerUps.hoverboard > 0 && (
           <div className="flex items-center gap-2 bg-slate-900/85 backdrop-blur-sm border border-rose-500/60 rounded-lg px-2.5 py-1 text-xs shadow-lg">
             <Flame size={14} className="text-rose-400 animate-pulse" />
@@ -136,7 +192,7 @@ export const GameHUD: React.FC<GameHUDProps> = ({
               <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden mt-0.5">
                 <div
                   className="bg-pink-500 h-full rounded-full transition-all duration-200"
-                  style={{ width: `${(powerUps.magnet / 15) * 100}%` }}
+                  style={{ width: `${(powerUps.magnet / 18) * 100}%` }}
                 />
               </div>
             </div>
@@ -148,31 +204,13 @@ export const GameHUD: React.FC<GameHUDProps> = ({
             <Zap size={14} className="text-blue-400" />
             <div className="flex-1">
               <div className="flex justify-between text-[10px] font-bold text-blue-300">
-                <span>2X MULTIPLIER</span>
+                <span>2X COIN MULTIPLIER</span>
                 <span>{Math.ceil(powerUps.doubleCoins)}s</span>
               </div>
               <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden mt-0.5">
                 <div
                   className="bg-blue-500 h-full rounded-full transition-all duration-200"
-                  style={{ width: `${(powerUps.doubleCoins / 20) * 100}%` }}
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {powerUps.shield > 0 && (
-          <div className="flex items-center gap-2 bg-slate-900/85 backdrop-blur-sm border border-emerald-500/60 rounded-lg px-2.5 py-1 text-xs shadow-lg">
-            <Shield size={14} className="text-emerald-400" />
-            <div className="flex-1">
-              <div className="flex justify-between text-[10px] font-bold text-emerald-300">
-                <span>CRASH SHIELD</span>
-                <span>{Math.ceil(powerUps.shield)}s</span>
-              </div>
-              <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden mt-0.5">
-                <div
-                  className="bg-emerald-500 h-full rounded-full transition-all duration-200"
-                  style={{ width: `${(powerUps.shield / 25) * 100}%` }}
+                  style={{ width: `${(powerUps.doubleCoins / 24) * 100}%` }}
                 />
               </div>
             </div>
@@ -184,13 +222,13 @@ export const GameHUD: React.FC<GameHUDProps> = ({
             <ArrowUpCircle size={14} className="text-amber-400" />
             <div className="flex-1">
               <div className="flex justify-between text-[10px] font-bold text-amber-300">
-                <span>SUPER JUMP</span>
+                <span>SUPER JUMP BOOTS</span>
                 <span>{Math.ceil(powerUps.superJump)}s</span>
               </div>
               <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden mt-0.5">
                 <div
                   className="bg-amber-500 h-full rounded-full transition-all duration-200"
-                  style={{ width: `${(powerUps.superJump / 15) * 100}%` }}
+                  style={{ width: `${(powerUps.superJump / 18) * 100}%` }}
                 />
               </div>
             </div>
@@ -198,7 +236,7 @@ export const GameHUD: React.FC<GameHUDProps> = ({
         )}
       </div>
 
-      {/* Bottom Controls / Virtual Buttons & Hoverboard Deploy */}
+      {/* Bottom Controls / Virtual Buttons & Hoverboard + Punch Deploy */}
       <div className="flex items-end justify-between z-20 pointer-events-auto pb-2">
         {/* Left Touch Cluster: Left / Right Arrows */}
         {showOnScreenControls ? (
@@ -222,21 +260,33 @@ export const GameHUD: React.FC<GameHUDProps> = ({
           <div />
         )}
 
-        {/* Center: Quick Deploy Hoverboard */}
-        <button
-          onClick={onDeployHoverboard}
-          disabled={powerUps.hoverboard > 0 || hoverboardsStock <= 0}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl font-black text-sm tracking-wide uppercase shadow-2xl transition-all active:scale-95 border ${
-            powerUps.hoverboard > 0
-              ? 'bg-rose-600/70 border-rose-400 text-white shadow-rose-600/40'
-              : hoverboardsStock > 0
-              ? 'bg-gradient-to-r from-rose-500 to-amber-500 border-amber-300 text-white hover:brightness-110 shadow-rose-500/30'
-              : 'bg-slate-800/70 border-slate-700 text-slate-400 opacity-60'
-          }`}
-        >
-          <Flame size={18} />
-          <span>{powerUps.hoverboard > 0 ? 'SURFING!' : `HOVERBOARD (${hoverboardsStock})`}</span>
-        </button>
+        {/* Center: Action Buttons (Power Punch & Hoverboard) */}
+        <div className="flex items-center gap-2">
+          {/* Power Punch Action Button */}
+          <button
+            onClick={onPunch}
+            className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-2xl font-black text-xs md:text-sm tracking-wide uppercase bg-gradient-to-r from-orange-500 to-amber-600 hover:brightness-110 border border-orange-300 text-white shadow-xl shadow-orange-600/30 active:scale-95 transition-all cursor-pointer"
+          >
+            <span className="text-base">🥊</span>
+            <span>PUNCH [F]</span>
+          </button>
+
+          {/* Quick Deploy Hoverboard */}
+          <button
+            onClick={onDeployHoverboard}
+            disabled={powerUps.hoverboard > 0 || hoverboardsStock <= 0}
+            className={`flex items-center gap-2 px-3.5 py-2.5 rounded-2xl font-black text-xs md:text-sm tracking-wide uppercase shadow-2xl transition-all active:scale-95 border cursor-pointer ${
+              powerUps.hoverboard > 0
+                ? 'bg-rose-600/70 border-rose-400 text-white shadow-rose-600/40'
+                : hoverboardsStock > 0
+                ? 'bg-gradient-to-r from-rose-500 to-amber-500 border-amber-300 text-white hover:brightness-110 shadow-rose-500/30'
+                : 'bg-slate-800/70 border-slate-700 text-slate-400 opacity-60'
+            }`}
+          >
+            <Flame size={18} />
+            <span>{powerUps.hoverboard > 0 ? 'SURFING!' : `BOARD (${hoverboardsStock})`}</span>
+          </button>
+        </div>
 
         {/* Right Touch Cluster: Jump / Slide */}
         {showOnScreenControls && (

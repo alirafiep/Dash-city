@@ -4,7 +4,7 @@ import { audio } from './audio';
 import { CHARACTERS, HOVERBOARDS, OUTFITS } from './storage';
 import { PlayerRig, PoliceDogRig, PoliceOfficerRig } from './three/characterRigs';
 import { MaterialLibrary } from './three/materials';
-import { LANES, WorldManager } from './three/worldBuilder';
+import { LANES, WorldManager, ObstacleInstance } from './three/worldBuilder';
 import { CharacterDef, GameMode, GameSaveData, HoverboardDef, OutfitDef, PowerUpActiveState, WeatherType } from './types';
 
 // Pre-allocated math objects to avoid GC per Three.js directives
@@ -79,16 +79,31 @@ export class DashEngine {
   private gravity = -42;
   private jumpForce = 15;
 
+  // Climbing & Train Roof State
+  private isClimbing = false;
+  private climbTimer = 0;
+  private climbDuration = 0.28;
+  private climbStartX = 0;
+  private climbStartY = 0;
+  private climbTargetX = 0;
+  private climbTargetY = 3.6;
+
+  // Power Punch Action
+  private isPunching = false;
+  private punchTimer = 0;
+
   // Police Chase Mechanics
   private policeDistance = 9; // meters behind player
   private targetPoliceDistance = 9;
   private policeWarning = false;
   private closeCallTimer = 0;
 
-  // Active Power-ups
+  // Active Power-ups (All 7 Subway Surfers-style abilities)
   public powerUps: PowerUpActiveState = {
     magnet: 0,
     superJump: 0,
+    superSpeed: 0,
+    powerPunch: 0,
     jetpack: 0,
     shield: 0,
     doubleCoins: 0,
@@ -254,25 +269,45 @@ export class DashEngine {
 
   // --- Controls & Input ---
   public moveLeft() {
-    if (!this.isRunning || this.isPaused) return;
+    if (!this.isRunning || this.isPaused || this.isClimbing) return;
     if (this.targetLane > 0) {
       this.targetLane--;
       audio.playLaneSwitch();
+
+      // Check if new lane has an adjacent train to climb or land on
+      const trainInLane = this.getTrainInLane(this.targetLane);
+      if (trainInLane && this.currentGroundY < (trainInLane.roofHeight || 3.6)) {
+        this.startClimb(trainInLane);
+      }
     }
   }
 
   public moveRight() {
-    if (!this.isRunning || this.isPaused) return;
+    if (!this.isRunning || this.isPaused || this.isClimbing) return;
     if (this.targetLane < 2) {
       this.targetLane++;
       audio.playLaneSwitch();
+
+      // Check if new lane has an adjacent train to climb or land on
+      const trainInLane = this.getTrainInLane(this.targetLane);
+      if (trainInLane && this.currentGroundY < (trainInLane.roofHeight || 3.6)) {
+        this.startClimb(trainInLane);
+      }
     }
   }
 
   public jump() {
-    if (!this.isRunning || this.isPaused) return;
-    if (this.isGrounded) {
-      const superBoost = this.powerUps.superJump > 0 ? 1.45 : 1.0;
+    if (!this.isRunning || this.isPaused || this.isClimbing) return;
+
+    // If alongside a train, jumping grabs the side ladder and vaults up onto the roof!
+    const nearbyTrain = this.getNearbyTrainForClimb();
+    if (nearbyTrain && this.currentGroundY < (nearbyTrain.roofHeight || 3.6)) {
+      this.startClimb(nearbyTrain);
+      return;
+    }
+
+    if (this.isGrounded || this.currentY <= this.currentGroundY + 0.15) {
+      const superBoost = this.powerUps.superJump > 0 ? 1.6 : 1.0;
       this.velocityY = this.jumpForce * superBoost;
       this.isGrounded = false;
       this.isSliding = false;
@@ -281,8 +316,73 @@ export class DashEngine {
     }
   }
 
-  public slide() {
+  public punch() {
     if (!this.isRunning || this.isPaused) return;
+    this.isPunching = true;
+    this.punchTimer = 0.35;
+    audio.playPunch();
+
+    // Power Punch smashes any hurdle or obstacle directly ahead of the player!
+    this.worldManager.chunks.forEach((chunk) => {
+      chunk.obstacles.forEach((obs) => {
+        const isAhead = obs.z < this.currentZ && obs.z > this.currentZ - 9;
+        const isSameLane = Math.abs(LANES[obs.lane] - this.currentX) < 1.8;
+        if (isAhead && isSameLane && (obs.type === 'JUMP_HURDLE' || obs.type === 'SLIDE_BARRIER')) {
+          obs.mesh.visible = false;
+          obs.box.makeEmpty();
+          this.runScore += 250;
+        }
+      });
+    });
+  }
+
+  public startClimb(obs: ObstacleInstance) {
+    if (this.isClimbing) return;
+    this.isClimbing = true;
+    this.climbTimer = 0;
+    this.climbStartX = this.currentX;
+    this.climbStartY = this.currentY;
+    this.climbTargetX = LANES[obs.lane];
+    this.climbTargetY = obs.roofHeight || 3.6;
+    this.targetLane = obs.lane;
+    this.velocityY = 0;
+    this.isGrounded = false;
+    this.isSliding = false;
+    this.isStumbling = false;
+    audio.playJump();
+    this.callbacks.onMissionProgress?.('TRAINS', 1);
+  }
+
+  private getNearbyTrainForClimb(): ObstacleInstance | null {
+    for (const chunk of this.worldManager.chunks) {
+      for (const obs of chunk.obstacles) {
+        if ((obs.type === 'TRAIN_STATIONARY' || obs.type === 'TRAIN_MOVING') && obs.canClimbRoof) {
+          const distZ = Math.abs(obs.z - this.currentZ);
+          const distX = Math.abs(LANES[obs.lane] - this.currentX);
+          if (distZ < 7.8 && distX <= 3.8) {
+            return obs;
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  private getTrainInLane(lane: number): ObstacleInstance | null {
+    for (const chunk of this.worldManager.chunks) {
+      for (const obs of chunk.obstacles) {
+        if (obs.lane === lane && (obs.type === 'TRAIN_STATIONARY' || obs.type === 'TRAIN_MOVING') && obs.canClimbRoof) {
+          if (Math.abs(obs.z - this.currentZ) < 7.5) {
+            return obs;
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  public slide() {
+    if (!this.isRunning || this.isPaused || this.isClimbing) return;
     if (!this.isSliding) {
       this.isSliding = true;
       this.slideTimer = 0.75;
@@ -416,14 +516,16 @@ export class DashEngine {
 
   // --- Physics & Kinematics ---
   private updatePhysics(delta: number, time: number) {
-    // Accelerate runner speed gradually
+    // Accelerate runner speed gradually + superSpeed boost
     if (this.currentSpeed < this.maxSpeed) {
       this.currentSpeed += delta * 0.2;
     }
-    audio.updateBGMTempo(this.currentSpeed / this.baseSpeed);
+    const speedBoost = this.powerUps.superSpeed > 0 ? 12 : 0;
+    const effectiveSpeed = this.currentSpeed + speedBoost;
+    audio.updateBGMTempo(effectiveSpeed / this.baseSpeed);
 
     // Forward displacement
-    const forwardStep = this.currentSpeed * delta;
+    const forwardStep = effectiveSpeed * delta;
     this.currentZ -= forwardStep;
     this.runDistance += forwardStep;
     this.runScore += forwardStep * this.scoreMultiplier * 2.5;
@@ -437,21 +539,47 @@ export class DashEngine {
       }
     }
 
-    // Smooth Lane Interpolation (Exponential Damping)
+    // Climbing Interpolation onto Train Roof
+    if (this.isClimbing) {
+      this.climbTimer += delta;
+      const p = Math.min(1.0, this.climbTimer / this.climbDuration);
+      const easeOut = 1 - Math.pow(1 - p, 3);
+      this.currentX = THREE.MathUtils.lerp(this.climbStartX, this.climbTargetX, easeOut);
+      this.currentY = THREE.MathUtils.lerp(this.climbStartY, this.climbTargetY, easeOut);
+
+      if (p >= 1.0) {
+        this.isClimbing = false;
+        this.currentGroundY = this.climbTargetY;
+        this.currentY = this.climbTargetY;
+        this.isGrounded = true;
+        this.velocityY = 0;
+        this.currentX = this.climbTargetX;
+      }
+    } else {
+      // Smooth Lane Interpolation (Exponential Damping)
+      const targetX = LANES[this.targetLane];
+      this.currentX = THREE.MathUtils.damp(this.currentX, targetX, 16, delta);
+    }
     const targetX = LANES[this.targetLane];
-    const prevX = this.currentX;
-    this.currentX = THREE.MathUtils.damp(this.currentX, targetX, 16, delta);
     const laneOffsetRatio = (this.currentX - targetX) / 3.4;
 
-    // Vertical Jump & Gravity
-    if (!this.isGrounded) {
-      this.velocityY += this.gravity * delta;
-      this.currentY += this.velocityY * delta;
+    // Jetpack High-Altitude Flight
+    if (this.powerUps.jetpack > 0) {
+      this.currentY = THREE.MathUtils.damp(this.currentY, 7.5, 6, delta);
+      this.velocityY = 0;
+      this.isGrounded = false;
+      this.currentGroundY = 7.5;
+    } else if (!this.isClimbing) {
+      // Vertical Jump & Gravity (works on ground and on train roofs!)
+      if (!this.isGrounded) {
+        this.velocityY += this.gravity * delta;
+        this.currentY += this.velocityY * delta;
 
-      if (this.currentY <= this.currentGroundY) {
-        this.currentY = this.currentGroundY;
-        this.velocityY = 0;
-        this.isGrounded = true;
+        if (this.currentY <= this.currentGroundY) {
+          this.currentY = this.currentGroundY;
+          this.velocityY = 0;
+          this.isGrounded = true;
+        }
       }
     }
 
@@ -460,6 +588,14 @@ export class DashEngine {
       this.slideTimer -= delta;
       if (this.slideTimer <= 0) {
         this.isSliding = false;
+      }
+    }
+
+    // Punch animation timer
+    if (this.isPunching) {
+      this.punchTimer -= delta;
+      if (this.punchTimer <= 0) {
+        this.isPunching = false;
       }
     }
 
@@ -487,13 +623,16 @@ export class DashEngine {
     this.playerRig.group.position.set(this.currentX, this.currentY, this.currentZ);
 
     // Animation State
-    let animState: 'RUN' | 'JUMP' | 'SLIDE' | 'HOVER' | 'STUMBLE' | 'BUSTED' = 'RUN';
-    if (this.powerUps.hoverboard > 0) animState = 'HOVER';
+    let animState: 'RUN' | 'JUMP' | 'SLIDE' | 'HOVER' | 'STUMBLE' | 'BUSTED' | 'CLIMB' | 'PUNCH' | 'JETPACK' = 'RUN';
+    if (this.isClimbing) animState = 'CLIMB';
+    else if (this.isPunching) animState = 'PUNCH';
+    else if (this.powerUps.jetpack > 0) animState = 'JETPACK';
+    else if (this.powerUps.hoverboard > 0) animState = 'HOVER';
     else if (!this.isGrounded) animState = 'JUMP';
     else if (this.isSliding) animState = 'SLIDE';
     else if (this.isStumbling) animState = 'STUMBLE';
 
-    this.playerRig.animate(time, animState, this.currentSpeed / this.baseSpeed, laneOffsetRatio);
+    this.playerRig.animate(time, animState, effectiveSpeed / this.baseSpeed, laneOffsetRatio);
   }
 
   // --- Police Chase AI ---
@@ -533,7 +672,7 @@ export class DashEngine {
       5,
       delta
     );
-    this.policeRig.group.position.set(policeX, this.currentGroundY, policeZ);
+    this.policeRig.group.position.set(policeX, Math.min(this.currentGroundY, 0), policeZ);
     this.policeRig.animate(time, this.currentSpeed / this.baseSpeed);
 
     // Police dog runs slightly to the right of officer
@@ -544,7 +683,7 @@ export class DashEngine {
       6,
       delta
     );
-    this.dogRig.group.position.set(dogX, this.currentGroundY, dogZ);
+    this.dogRig.group.position.set(dogX, Math.min(this.currentGroundY, 0), dogZ);
     this.dogRig.animate(time, this.currentSpeed / this.baseSpeed);
   }
 
@@ -552,8 +691,18 @@ export class DashEngine {
   private updatePowerUps(delta: number) {
     if (this.powerUps.magnet > 0) this.powerUps.magnet = Math.max(0, this.powerUps.magnet - delta);
     if (this.powerUps.superJump > 0) this.powerUps.superJump = Math.max(0, this.powerUps.superJump - delta);
+    if (this.powerUps.superSpeed > 0) this.powerUps.superSpeed = Math.max(0, this.powerUps.superSpeed - delta);
+    if (this.powerUps.powerPunch > 0) this.powerUps.powerPunch = Math.max(0, this.powerUps.powerPunch - delta);
     if (this.powerUps.shield > 0) this.powerUps.shield = Math.max(0, this.powerUps.shield - delta);
     if (this.powerUps.doubleCoins > 0) this.powerUps.doubleCoins = Math.max(0, this.powerUps.doubleCoins - delta);
+
+    if (this.powerUps.jetpack > 0) {
+      this.powerUps.jetpack = Math.max(0, this.powerUps.jetpack - delta);
+      if (this.powerUps.jetpack <= 0) {
+        this.playerRig.setJetpackVisible(false);
+        this.currentGroundY = 0;
+      }
+    }
 
     if (this.powerUps.hoverboard > 0) {
       this.powerUps.hoverboard = Math.max(0, this.powerUps.hoverboard - delta);
@@ -565,7 +714,7 @@ export class DashEngine {
 
   // --- Collectibles & Magnet Pull ---
   private updateCollectibles(delta: number) {
-    const magnetRadius = (this.powerUps.magnet > 0) ? (14 * (1 + (this.currentCharacter.perkMagnetBonus || 0))) : 2.0;
+    const magnetRadius = (this.powerUps.magnet > 0) ? (16 * (1 + (this.currentCharacter.perkMagnetBonus || 0))) : 2.0;
 
     this.worldManager.chunks.forEach((chunk) => {
       chunk.collectibles.forEach((col) => {
@@ -580,12 +729,12 @@ export class DashEngine {
 
         // Coin Magnet Pull towards player
         if (this.powerUps.magnet > 0 && distZ < magnetRadius && distZ > 0.5) {
-          col.mesh.position.x = THREE.MathUtils.damp(col.mesh.position.x, this.currentX, 12, delta);
-          col.mesh.position.y = THREE.MathUtils.damp(col.mesh.position.y, this.currentY + 1.0, 12, delta);
+          col.mesh.position.x = THREE.MathUtils.damp(col.mesh.position.x, this.currentX, 14, delta);
+          col.mesh.position.y = THREE.MathUtils.damp(col.mesh.position.y, this.currentY + 1.0, 14, delta);
         }
 
         // Pickup collision
-        if (distZ < 1.6 && distX < 1.3 && distY < 2.0) {
+        if (distZ < 1.8 && distX < 1.4 && distY < 2.4) {
           col.collected = true;
           col.mesh.visible = false;
 
@@ -600,17 +749,35 @@ export class DashEngine {
             this.runScore += 250 * this.scoreMultiplier;
             audio.playDiamond();
           } else if (col.type === 'POWERUP_MAGNET') {
-            this.powerUps.magnet = 15;
+            const lvl = this.saveData.powerUpLevels.magnet;
+            this.powerUps.magnet = 15 + lvl * 3;
             audio.playPowerUp();
           } else if (col.type === 'POWERUP_2X') {
-            this.powerUps.doubleCoins = 20;
+            const lvl = this.saveData.powerUpLevels.doubleCoins;
+            this.powerUps.doubleCoins = 20 + lvl * 4;
             audio.playPowerUp();
           } else if (col.type === 'POWERUP_SHIELD') {
-            this.powerUps.shield = 25;
+            const lvl = this.saveData.powerUpLevels.shield;
+            this.powerUps.shield = 25 + lvl * 5;
             audio.playPowerUp();
           } else if (col.type === 'POWERUP_JUMP') {
-            this.powerUps.superJump = 15;
+            const lvl = this.saveData.powerUpLevels.superJump;
+            this.powerUps.superJump = 15 + lvl * 3;
             audio.playPowerUp();
+          } else if (col.type === 'POWERUP_SPEED') {
+            const lvl = this.saveData.powerUpLevels.superSpeed;
+            this.powerUps.superSpeed = 12 + lvl * 3;
+            audio.playSpeedBoost();
+          } else if (col.type === 'POWERUP_PUNCH') {
+            const lvl = this.saveData.powerUpLevels.powerPunch;
+            this.powerUps.powerPunch = 15 + lvl * 3;
+            audio.playPowerUp();
+            this.punch();
+          } else if (col.type === 'POWERUP_JETPACK') {
+            const lvl = this.saveData.powerUpLevels.jetpack;
+            this.powerUps.jetpack = 15 + lvl * 3;
+            this.playerRig.setJetpackVisible(true);
+            audio.playJetpack();
           }
         }
       });
@@ -636,12 +803,18 @@ export class DashEngine {
         // Distance check first for performance
         if (Math.abs(obs.z - this.currentZ) > 12) continue;
 
-        // Check if player is on top of train or ramp
+        // Check train roof freedom & side climbing
         if (obs.canClimbRoof && obs.roofHeight) {
-          const isOverTrainX = Math.abs(LANES[obs.lane] - this.currentX) < 1.5;
-          const isOverTrainZ = Math.abs(obs.z - this.currentZ) < 8;
+          // Strictly enforce train balance and stability: train never tilts, shakes, rolls, or derails
+          obs.mesh.rotation.set(0, 0, 0);
+          obs.mesh.position.y = 0;
+          obs.mesh.position.x = LANES[obs.lane];
 
-          if (isOverTrainX && isOverTrainZ && this.currentY >= obs.roofHeight - 0.4) {
+          const isOverTrainX = Math.abs(LANES[obs.lane] - this.currentX) < 1.45;
+          const isOverTrainZ = Math.abs(obs.z - this.currentZ) < 7.6;
+
+          // 1. Standing, walking, and moving freely on top of the train roof
+          if (isOverTrainX && isOverTrainZ && this.currentY >= obs.roofHeight - 0.45) {
             onRoofOfTrain = true;
             this.currentGroundY = obs.roofHeight;
             if (this.isGrounded) {
@@ -649,10 +822,38 @@ export class DashEngine {
             }
             continue;
           }
+
+          // 2. Smoothly climb up from the side or rear onto the roof
+          const isBesideTrainX = Math.abs(LANES[obs.lane] - this.currentX) <= 2.2;
+          const isHittingTrainBox = _playerBox.intersectsBox(obs.box);
+
+          if (isOverTrainZ && (isBesideTrainX || isHittingTrainBox)) {
+            const isSide = Math.abs(LANES[obs.lane] - this.currentX) > 0.45;
+            const isAirborneOrJumping = !this.isGrounded || this.velocityY > -8 || this.currentY > 0.4;
+            const isRear = (this.currentZ > obs.z + 5.0);
+
+            if (isSide || isAirborneOrJumping || isRear) {
+              this.startClimb(obs);
+              return;
+            }
+          }
+        }
+
+        // If Jetpack is active, player flies high in the sky (y = 7.5m), completely above collisions!
+        if (this.powerUps.jetpack > 0) {
+          continue;
         }
 
         // Collision Check
         if (_playerBox.intersectsBox(obs.box)) {
+          // If Super Speed is active, blast through hurdle or barrier!
+          if (this.powerUps.superSpeed > 0 && (obs.type === 'JUMP_HURDLE' || obs.type === 'SLIDE_BARRIER')) {
+            obs.mesh.visible = false;
+            obs.box.makeEmpty();
+            this.runScore += 200;
+            continue;
+          }
+
           // If player has active hoverboard or shield, absorb crash!
           if (this.powerUps.hoverboard > 0) {
             this.powerUps.hoverboard = 0;
@@ -694,8 +895,8 @@ export class DashEngine {
       }
     }
 
-    // Reset ground level if not on train roof
-    if (!onRoofOfTrain && this.currentGroundY > 0) {
+    // Reset ground level if not on train roof and not flying with jetpack
+    if (!onRoofOfTrain && this.powerUps.jetpack <= 0 && this.currentGroundY > 0) {
       this.currentGroundY = 0;
       this.isGrounded = false; // Fall back to ground!
     }

@@ -318,6 +318,8 @@ export function loadGameData(): GameSaveData {
         powerUpLevels: {
           magnet: data.powerUpLevels?.magnet ?? 1,
           superJump: data.powerUpLevels?.superJump ?? 1,
+          superSpeed: data.powerUpLevels?.superSpeed ?? 1,
+          powerPunch: data.powerUpLevels?.powerPunch ?? 1,
           jetpack: data.powerUpLevels?.jetpack ?? 1,
           shield: data.powerUpLevels?.shield ?? 1,
           doubleCoins: data.powerUpLevels?.doubleCoins ?? 1,
@@ -364,6 +366,8 @@ export function loadGameData(): GameSaveData {
     powerUpLevels: {
       magnet: 1,
       superJump: 1,
+      superSpeed: 1,
+      powerPunch: 1,
       jetpack: 1,
       shield: 1,
       doubleCoins: 1,
