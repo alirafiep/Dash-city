@@ -18,7 +18,13 @@ export class PlayerRig {
   private rightLegPivot: THREE.Group;
   private hoverboardGroup: THREE.Group;
   private hoverboardMesh: THREE.Mesh | null = null;
+  public skateboardGroup: THREE.Group;
+  public skateboardWheels: THREE.Mesh[] = [];
+  public isSkating = true;
   private capeMesh: THREE.Mesh | null = null;
+  private antennaPivot?: THREE.Group;
+  private donutMesh?: THREE.Mesh;
+  private bellyMesh?: THREE.Mesh;
 
   // Material handles for outfit customization
   private jacketMat: THREE.MeshStandardMaterial;
@@ -146,6 +152,159 @@ export class PlayerRig {
       this.head.add(cyberVisor);
     }
 
+    // --- FUNNY CARTOON CHARACTER ACCESSORIES ---
+    if (character.id === 'peel_pete') {
+      // 1. Banana Peel Shell & Green Stem Hat
+      const stemGeo = new THREE.CylinderGeometry(0.04, 0.06, 0.28, 8);
+      const stemMat = new THREE.MeshStandardMaterial({ color: 0x16a34a, roughness: 0.7 });
+      const stem = new THREE.Mesh(stemGeo, stemMat);
+      stem.position.set(0, 0.32, 0);
+      stem.rotation.z = -0.2;
+      this.head.add(stem);
+
+      // Banana Leaf
+      const leafGeo = new THREE.BoxGeometry(0.18, 0.03, 0.12);
+      const leaf = new THREE.Mesh(leafGeo, stemMat);
+      leaf.position.set(0.08, 0.32, 0);
+      leaf.rotation.z = -0.35;
+      this.head.add(leaf);
+
+      // Big Googly Eyes with Black Pupils
+      const eyeGeo = new THREE.SphereGeometry(0.09, 12, 12);
+      const eyeMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+      const pupilGeo = new THREE.SphereGeometry(0.045, 8, 8);
+      const pupilMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+
+      [-0.09, 0.09].forEach((x, i) => {
+        const eye = new THREE.Mesh(eyeGeo, eyeMat);
+        eye.position.set(x, 0.06, 0.18);
+        const pupil = new THREE.Mesh(pupilGeo, pupilMat);
+        pupil.position.set(i === 0 ? 0.02 : -0.02, 0, 0.06); // Goofy cross-eyed!
+        eye.add(pupil);
+        this.head.add(eye);
+      });
+
+      // Cool Black Pixel / Curved Sunglasses
+      const shadesGeo = new THREE.BoxGeometry(0.38, 0.07, 0.08);
+      const shadesMat = new THREE.MeshStandardMaterial({ color: 0x09090b, roughness: 0.1 });
+      const shades = new THREE.Mesh(shadesGeo, shadesMat);
+      shades.position.set(0, 0.06, 0.25);
+      this.head.add(shades);
+
+      // Yellow Banana Peel Flares on Torso
+      const peelFlareMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.5 });
+      [-0.28, 0.28].forEach((x) => {
+        const flare = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.5, 0.25), peelFlareMat);
+        flare.position.set(x, 0.25, 0);
+        flare.rotation.z = x > 0 ? -0.15 : 0.15;
+        this.torso.add(flare);
+      });
+    } else if (character.id === 'officer_bob') {
+      // Chubby Donut Belly on Torso
+      const bellyGeo = new THREE.SphereGeometry(0.28, 16, 16);
+      bellyGeo.scale(1.1, 0.9, 1.15);
+      const bellyMat = new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.6 });
+      this.bellyMesh = new THREE.Mesh(bellyGeo, bellyMat);
+      this.bellyMesh.position.set(0, 0.18, 0.14);
+      this.torso.add(this.bellyMesh);
+
+      // Golden Police Badge on Chest
+      const badgeGeo = new THREE.CylinderGeometry(0.06, 0.06, 0.02, 5);
+      const badgeMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 0.9, roughness: 0.1 });
+      const badge = new THREE.Mesh(badgeGeo, badgeMat);
+      badge.rotation.x = Math.PI / 2;
+      badge.position.set(-0.14, 0.38, 0.18);
+      this.torso.add(badge);
+
+      // Police Peaked Cap
+      const capCrown = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.26, 0.16, 12), new THREE.MeshStandardMaterial({ color: 0x1d4ed8 }));
+      capCrown.position.y = 0.16;
+      this.head.add(capCrown);
+
+      const capVisor = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.03, 0.2), new THREE.MeshStandardMaterial({ color: 0x09090b, roughness: 0.1 }));
+      capVisor.position.set(0, 0.1, 0.2);
+      this.head.add(capVisor);
+
+      const capBadge = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.02), badgeMat);
+      capBadge.position.set(0, 0.18, 0.26);
+      this.head.add(capBadge);
+
+      // Frosted Strawberry Donut for Left Hand
+      const donutDough = new THREE.Mesh(
+        new THREE.TorusGeometry(0.09, 0.045, 12, 16),
+        new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.8 })
+      );
+      const donutFrosting = new THREE.Mesh(
+        new THREE.TorusGeometry(0.092, 0.035, 12, 16),
+        new THREE.MeshStandardMaterial({ color: 0xf43f5e, roughness: 0.3 })
+      );
+      donutDough.add(donutFrosting);
+      donutDough.position.set(0, -0.58, 0.08);
+      donutDough.rotation.x = Math.PI / 4;
+      this.donutMesh = donutDough;
+    } else if (character.id === 'toadster') {
+      // Big Protruding Frog Eyes on top of head
+      const frogEyeGeo = new THREE.SphereGeometry(0.12, 14, 14);
+      const frogEyeMat = new THREE.MeshStandardMaterial({ color: 0x22c55e, roughness: 0.5 });
+      const eyeWhiteMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+      const pupilMat = new THREE.MeshBasicMaterial({ color: 0x0f172a });
+
+      [-0.15, 0.15].forEach((x) => {
+        const eyeBase = new THREE.Mesh(frogEyeGeo, frogEyeMat);
+        eyeBase.position.set(x, 0.22, 0.06);
+
+        const eyeWhite = new THREE.Mesh(new THREE.SphereGeometry(0.075, 10, 10), eyeWhiteMat);
+        eyeWhite.position.set(0, 0, 0.06);
+
+        const pupil = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.03, 0.02), pupilMat); // Horizontal frog pupil!
+        pupil.position.set(0, 0, 0.07);
+        eyeBase.add(eyeWhite, pupil);
+        this.head.add(eyeBase);
+      });
+
+      // Backwards Orange Skater Snapback Cap
+      const capCrown = new THREE.Mesh(new THREE.CylinderGeometry(0.23, 0.25, 0.14, 12), new THREE.MeshStandardMaterial({ color: 0xf97316 }));
+      capCrown.position.y = 0.12;
+      this.head.add(capCrown);
+
+      const capVisor = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.03, 0.2), new THREE.MeshStandardMaterial({ color: 0xea580c }));
+      capVisor.position.set(0, 0.08, -0.22); // Backwards!
+      this.head.add(capVisor);
+    } else if (character.id === 'gizmo') {
+      // Cyan CRT chest screen
+      const screenGeo = new THREE.BoxGeometry(0.36, 0.32, 0.05);
+      const screenMat = new THREE.MeshStandardMaterial({
+        color: 0x06b6d4,
+        emissive: 0x06b6d4,
+        emissiveIntensity: 0.6,
+        roughness: 0.1,
+      });
+      const screen = new THREE.Mesh(screenGeo, screenMat);
+      screen.position.set(0, 0.26, 0.16);
+      this.torso.add(screen);
+
+      // Bouncy Spring Antenna on Head
+      this.antennaPivot = new THREE.Group();
+      this.antennaPivot.position.set(0, 0.25, 0);
+
+      const springGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.3, 8);
+      const springMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.9 });
+      const spring = new THREE.Mesh(springGeo, springMat);
+      spring.position.y = 0.15;
+      this.antennaPivot.add(spring);
+
+      const bulbGeo = new THREE.SphereGeometry(0.08, 12, 12);
+      const bulbMat = new THREE.MeshStandardMaterial({
+        color: 0xfacc15,
+        emissive: 0xfacc15,
+        emissiveIntensity: 0.8,
+      });
+      const bulb = new THREE.Mesh(bulbGeo, bulbMat);
+      bulb.position.y = 0.32;
+      this.antennaPivot.add(bulb);
+      this.head.add(this.antennaPivot);
+    }
+
     // 3. Left Arm
     this.leftArmPivot = new THREE.Group();
     this.leftArmPivot.position.set(-0.32, 0.5, 0);
@@ -162,6 +321,11 @@ export class PlayerRig {
     const leftHand = new THREE.Mesh(handGeo, this.skinMat);
     leftHand.position.set(0, -0.52, 0);
     this.leftArmPivot.add(leftHand);
+
+    // Attach Officer Bob's delicious donut if created
+    if (this.donutMesh) {
+      this.leftArmPivot.add(this.donutMesh);
+    }
 
     // 4. Right Arm
     this.rightArmPivot = new THREE.Group();
@@ -210,22 +374,28 @@ export class PlayerRig {
     rightShoe.castShadow = true;
     this.rightLegPivot.add(rightShoe);
 
-    // 7. Hoverboard (at feet, visible when active)
+    // 7. Skateboard (at feet, standard active board with rolling wheels!)
+    this.skateboardGroup = new THREE.Group();
+    this.skateboardGroup.position.set(0, 0.09, 0);
+    this.createSkateboardMesh(character, hoverboard);
+    this.group.add(this.skateboardGroup);
+
+    // 8. Hoverboard (at feet, visible when hoverboard powerup is deployed)
     this.hoverboardGroup = new THREE.Group();
-    this.hoverboardGroup.position.set(0, 0.15, 0);
+    this.hoverboardGroup.position.set(0, 0.18, 0);
     this.hoverboardGroup.visible = false;
     this.group.add(this.hoverboardGroup);
 
     this.createHoverboardMesh();
 
-    // 8. Jetpack (mounted on back, visible when active)
+    // 9. Jetpack (mounted on back, visible when active)
     this.jetpackGroup = new THREE.Group();
     this.jetpackGroup.position.set(0, 0.25, -0.22);
     this.jetpackGroup.visible = false;
     this.torso.add(this.jetpackGroup);
     this.createJetpackMesh();
 
-    // 9. Punch Energy Aura (on right fist)
+    // 10. Punch Energy Aura (on right fist)
     const punchAuraGeo = new THREE.SphereGeometry(0.18, 12, 12);
     const punchAuraMat = new THREE.MeshBasicMaterial({
       color: 0xf97316,
@@ -285,6 +455,84 @@ export class PlayerRig {
     this.punchAuraMesh.visible = visible;
   }
 
+  public createSkateboardMesh(character: CharacterDef, hoverboard?: HoverboardDef) {
+    // 1. Maple Wood Deck with turned-up nose and kicktail
+    const deckMat = new THREE.MeshStandardMaterial({
+      color: hoverboard?.colorA || '#f59e0b',
+      roughness: 0.35,
+      metalness: 0.15,
+    });
+    const gripMat = new THREE.MeshStandardMaterial({
+      color: 0x18181b, // Charcoal black grip tape
+      roughness: 0.95,
+      metalness: 0.05,
+    });
+
+    // Central flat deck
+    const flatDeckGeo = new THREE.BoxGeometry(0.52, 0.04, 1.1);
+    const flatDeck = new THREE.Mesh(flatDeckGeo, deckMat);
+    flatDeck.castShadow = true;
+    this.skateboardGroup.add(flatDeck);
+
+    // Grip tape layer
+    const gripGeo = new THREE.BoxGeometry(0.48, 0.01, 1.05);
+    const grip = new THREE.Mesh(gripGeo, gripMat);
+    grip.position.y = 0.025;
+    flatDeck.add(grip);
+
+    // Front kicknose (upturned)
+    const noseGeo = new THREE.BoxGeometry(0.5, 0.04, 0.22);
+    const nose = new THREE.Mesh(noseGeo, deckMat);
+    nose.position.set(0, 0.04, 0.63);
+    nose.rotation.x = 0.25;
+    this.skateboardGroup.add(nose);
+
+    // Rear kicktail (upturned)
+    const tail = nose.clone();
+    tail.position.set(0, 0.04, -0.63);
+    tail.rotation.x = -0.25;
+    this.skateboardGroup.add(tail);
+
+    // 2. Aluminum Trucks (Front & Back)
+    const truckMat = new THREE.MeshStandardMaterial({
+      color: 0xd4d4d8,
+      metalness: 0.9,
+      roughness: 0.2,
+    });
+    const wheelMat = new THREE.MeshStandardMaterial({
+      color: character.primaryColor || 0xef4444,
+      roughness: 0.3,
+      metalness: 0.1,
+    });
+
+    [-0.42, 0.42].forEach((tz) => {
+      // Baseplate & Hanger
+      const baseplate = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.04, 0.12), truckMat);
+      baseplate.position.set(0, -0.04, tz);
+      this.skateboardGroup.add(baseplate);
+
+      const axle = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.46, 8), truckMat);
+      axle.rotation.z = Math.PI / 2;
+      axle.position.set(0, -0.07, tz);
+      this.skateboardGroup.add(axle);
+
+      // Left & Right Urethane Wheels
+      [-0.24, 0.24].forEach((wx) => {
+        const wheelGeo = new THREE.CylinderGeometry(0.07, 0.07, 0.06, 16);
+        wheelGeo.rotateZ(Math.PI / 2);
+        const wheel = new THREE.Mesh(wheelGeo, wheelMat);
+        wheel.position.set(wx, -0.07, tz);
+        wheel.castShadow = true;
+        this.skateboardGroup.add(wheel);
+        this.skateboardWheels.push(wheel);
+      });
+    });
+  }
+
+  public setSkateboardVisible(visible: boolean) {
+    this.skateboardGroup.visible = visible;
+  }
+
   private createHoverboardMesh() {
     const deckGeo = new THREE.BoxGeometry(0.7, 0.08, 1.6);
     this.hoverboardMesh = new THREE.Mesh(deckGeo, this.boardMat);
@@ -304,6 +552,11 @@ export class PlayerRig {
 
   public setHoverboardVisible(visible: boolean) {
     this.hoverboardGroup.visible = visible;
+    if (visible) {
+      this.skateboardGroup.visible = false;
+    } else if (this.isSkating) {
+      this.skateboardGroup.visible = true;
+    }
   }
 
   public updateSkin(character: CharacterDef, outfit?: OutfitDef, hoverboard?: HoverboardDef) {
@@ -321,7 +574,7 @@ export class PlayerRig {
 
   public animate(
     time: number,
-    state: 'RUN' | 'JUMP' | 'SLIDE' | 'HOVER' | 'STUMBLE' | 'BUSTED' | 'CLIMB' | 'PUNCH' | 'JETPACK',
+    state: 'RUN' | 'JUMP' | 'SLIDE' | 'HOVER' | 'STUMBLE' | 'BUSTED' | 'CLIMB' | 'PUNCH' | 'JETPACK' | 'SKATE' | 'SKATE_OLLIE' | 'SKATE_SLIDE' | 'INSIDE_TRAIN',
     speedRatio: number,
     laneOffsetRatio = 0
   ) {
@@ -331,6 +584,22 @@ export class PlayerRig {
     this.punchAuraMesh.visible = (state === 'PUNCH');
     // Jetpack toggle
     this.jetpackGroup.visible = (state === 'JETPACK');
+
+    // Gizmo Antenna jiggle
+    if (this.antennaPivot) {
+      this.antennaPivot.rotation.z = Math.sin(time * 18) * 0.35;
+      this.antennaPivot.rotation.x = Math.cos(time * 15) * 0.2;
+    }
+
+    // Officer Bob belly bounce
+    if (this.bellyMesh) {
+      this.bellyMesh.scale.y = 0.9 + Math.abs(Math.sin(time * runFreq)) * 0.12;
+    }
+
+    // Continuous rolling rotation of skateboard wheels
+    this.skateboardWheels.forEach((wheel) => {
+      wheel.rotation.x += speedRatio * 0.35;
+    });
 
     if (state === 'PUNCH') {
       // Powerful forward lunging punch
@@ -348,6 +617,7 @@ export class PlayerRig {
     if (state === 'JETPACK') {
       // High-altitude superhero flight
       this.hoverboardGroup.visible = false;
+      this.skateboardGroup.visible = false;
       this.torso.rotation.x = 0.82; // Streamlined forward flight
       this.torso.position.y = 1.1 + Math.sin(time * 6) * 0.06;
       this.torso.rotation.z = -laneOffsetRatio * 0.4; // Bank in turns
@@ -370,6 +640,7 @@ export class PlayerRig {
     if (state === 'CLIMB') {
       // Parkour vault / ladder climb onto roof
       this.hoverboardGroup.visible = false;
+      this.skateboardGroup.visible = false;
       this.torso.rotation.x = 0.2;
       this.torso.position.y = 1.05;
       const climbCycle = Math.sin(time * 20);
@@ -384,6 +655,8 @@ export class PlayerRig {
 
     if (state === 'BUSTED') {
       // Fall back animation
+      this.hoverboardGroup.visible = false;
+      this.skateboardGroup.visible = false;
       this.torso.rotation.x = THREE.MathUtils.damp(this.torso.rotation.x, 0.8, 10, 0.016);
       this.torso.position.y = THREE.MathUtils.damp(this.torso.position.y, 0.6, 10, 0.016);
       this.leftArmPivot.rotation.x = 1.2;
@@ -393,20 +666,10 @@ export class PlayerRig {
       return;
     }
 
-    if (state === 'SLIDE') {
-      // Duck and slide
-      this.torso.rotation.x = THREE.MathUtils.damp(this.torso.rotation.x, -0.7, 16, 0.016);
-      this.torso.position.y = THREE.MathUtils.damp(this.torso.position.y, 0.6, 16, 0.016);
-      this.leftLegPivot.rotation.x = -1.1;
-      this.rightLegPivot.rotation.x = -1.15;
-      this.leftArmPivot.rotation.x = 0.9;
-      this.rightArmPivot.rotation.x = 0.9;
-      return;
-    }
-
     if (state === 'HOVER') {
       // Surfing on hoverboard
       this.hoverboardGroup.visible = true;
+      this.skateboardGroup.visible = false;
       this.torso.position.y = 1.15 + Math.sin(time * 6) * 0.04;
       this.torso.rotation.x = 0;
       this.torso.rotation.y = 0.45; // Surfer side stance
@@ -427,7 +690,104 @@ export class PlayerRig {
       return;
     }
 
+    // --- SKATEBOARDING STATES ---
+    const isSkateActive = this.isSkating && state !== 'RUN';
+    if (state === 'SKATE' || isSkateActive || state === 'INSIDE_TRAIN') {
+      this.skateboardGroup.visible = true;
+      this.hoverboardGroup.visible = false;
+
+      if (state === 'INSIDE_TRAIN') {
+        // High-speed streamlined rush through hollow train cabin!
+        this.torso.position.y = 1.05;
+        this.torso.rotation.x = 0.3;
+        this.torso.rotation.y = 0.55;
+        this.torso.rotation.z = -laneOffsetRatio * 0.3;
+        this.skateboardGroup.rotation.z = -laneOffsetRatio * 0.4;
+
+        this.leftLegPivot.rotation.x = -0.2;
+        this.rightLegPivot.rotation.x = 0.25;
+        this.leftArmPivot.rotation.x = 0.5;
+        this.rightArmPivot.rotation.x = -0.4;
+        return;
+      }
+
+      if (state === 'SKATE_OLLIE' || state === 'JUMP') {
+        // Skateboard Ollie Leap: Board pops upward, knees tuck up, then level out
+        this.torso.rotation.x = -0.15;
+        this.torso.position.y = 1.15;
+        this.torso.rotation.y = 0.55;
+
+        // Ollie pop angle
+        this.skateboardGroup.rotation.x = -0.35;
+        this.skateboardGroup.rotation.z = -laneOffsetRatio * 0.3;
+
+        this.leftLegPivot.rotation.x = -0.7; // Front foot slides up board
+        this.rightLegPivot.rotation.x = -0.6; // Back foot pulls tail up
+        this.leftArmPivot.rotation.z = -0.7;
+        this.rightArmPivot.rotation.z = 0.7;
+        return;
+      }
+
+      if (state === 'SKATE_SLIDE' || state === 'SLIDE') {
+        // Skater Layback / Low Powerslide under barrier
+        this.torso.position.y = THREE.MathUtils.damp(this.torso.position.y, 0.65, 16, 0.016);
+        this.torso.rotation.x = THREE.MathUtils.damp(this.torso.rotation.x, -0.6, 16, 0.016);
+        this.torso.rotation.y = 0.7;
+
+        this.skateboardGroup.rotation.y = 0.65; // Board slides sideways
+        this.leftLegPivot.rotation.x = -1.0;
+        this.rightLegPivot.rotation.x = -0.9;
+        this.leftArmPivot.rotation.x = 0.8;
+        this.rightArmPivot.rotation.x = 0.8;
+        return;
+      }
+
+      // Default Smooth Skating & Carving
+      this.hoverboardGroup.visible = false;
+      this.skateboardGroup.rotation.x = 0;
+      this.skateboardGroup.rotation.y = 0;
+      this.skateboardGroup.rotation.z = -laneOffsetRatio * 0.45; // Real deck carving tilt!
+
+      this.torso.position.y = 1.12 + Math.sin(time * 5) * 0.02;
+      this.torso.rotation.x = 0.06;
+      this.torso.rotation.y = 0.55; // Natural sideways skateboarder stance
+      this.torso.rotation.z = -laneOffsetRatio * 0.35;
+
+      // Periodic skateboard foot push on straightaways
+      const pushCycle = (time * 2.8) % 2.5;
+      if (pushCycle < 0.7 && Math.abs(laneOffsetRatio) < 0.15) {
+        // Back right foot drops and kicks the ground
+        const pFrac = pushCycle / 0.7;
+        this.rightLegPivot.rotation.x = THREE.MathUtils.lerp(0.2, -0.85, Math.sin(pFrac * Math.PI));
+        this.leftLegPivot.rotation.x = -0.1;
+      } else {
+        // Balanced riding stance
+        this.leftLegPivot.rotation.x = -0.15;
+        this.rightLegPivot.rotation.x = 0.18;
+      }
+
+      // Arms balancing out
+      this.leftArmPivot.rotation.x = 0.3;
+      this.leftArmPivot.rotation.z = -0.45;
+      this.rightArmPivot.rotation.x = -0.25;
+      this.rightArmPivot.rotation.z = 0.5;
+      return;
+    }
+
+    // Default Running Cycle (when skateboard is toggled off)
+    this.skateboardGroup.visible = false;
     this.hoverboardGroup.visible = false;
+
+    if (state === 'SLIDE') {
+      // Duck and slide
+      this.torso.rotation.x = THREE.MathUtils.damp(this.torso.rotation.x, -0.7, 16, 0.016);
+      this.torso.position.y = THREE.MathUtils.damp(this.torso.position.y, 0.6, 16, 0.016);
+      this.leftLegPivot.rotation.x = -1.1;
+      this.rightLegPivot.rotation.x = -1.15;
+      this.leftArmPivot.rotation.x = 0.9;
+      this.rightArmPivot.rotation.x = 0.9;
+      return;
+    }
 
     if (state === 'JUMP') {
       // Tuck legs in air, arms out
@@ -442,13 +802,12 @@ export class PlayerRig {
       return;
     }
 
-    // Default Running Cycle
     const legAngle = Math.sin(time * runFreq) * 0.9;
     const armAngle = -Math.sin(time * runFreq) * 0.85;
     const bounce = Math.abs(Math.sin(time * runFreq)) * 0.12;
 
     this.torso.position.y = 1.1 + bounce;
-    this.torso.rotation.x = 0.12; // Forward athletic lean
+    this.torso.rotation.x = 0.12;
     this.torso.rotation.y = Math.sin(time * runFreq) * 0.08;
     this.torso.rotation.z = -laneOffsetRatio * 0.25;
 

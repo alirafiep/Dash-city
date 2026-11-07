@@ -13,6 +13,9 @@ interface GameHUDProps {
   policeWarning: boolean;
   hoverboardsStock: number;
   showOnScreenControls: boolean;
+  isInsideTrain?: boolean;
+  isSkating?: boolean;
+  onToggleSkateboard?: () => void;
   onPause: () => void;
   onDeployHoverboard: () => void;
   onPunch: () => void;
@@ -33,6 +36,9 @@ export const GameHUD: React.FC<GameHUDProps> = ({
   policeWarning,
   hoverboardsStock,
   showOnScreenControls,
+  isInsideTrain = false,
+  isSkating = true,
+  onToggleSkateboard,
   onPause,
   onDeployHoverboard,
   onPunch,
@@ -50,6 +56,17 @@ export const GameHUD: React.FC<GameHUDProps> = ({
             <span className="animate-spin text-base">🚨</span>
             POLICE CLOSING IN! DODGE OBSTACLES!
             <span className="animate-spin text-base">🚨</span>
+          </div>
+        </div>
+      )}
+
+      {/* Cartoon Train Interior Riding Banner */}
+      {isInsideTrain && (
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 pointer-events-none z-30 animate-bounce">
+          <div className="bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-400 text-slate-950 font-black text-xs md:text-sm px-4 py-2 rounded-2xl shadow-2xl border-2 border-yellow-300 flex items-center gap-2 tracking-wider uppercase drop-shadow-lg">
+            <span className="text-xl">🚂</span>
+            <span>RIDING INSIDE CARTOON EXPRESS! COLLECT DONUTS!</span>
+            <span className="text-xl">🍩</span>
           </div>
         </div>
       )}
@@ -260,8 +277,24 @@ export const GameHUD: React.FC<GameHUDProps> = ({
           <div />
         )}
 
-        {/* Center: Action Buttons (Power Punch & Hoverboard) */}
+        {/* Center: Action Buttons (Skateboard, Power Punch & Hoverboard) */}
         <div className="flex items-center gap-2">
+          {/* Skateboard Active/Toggle Button */}
+          {onToggleSkateboard && (
+            <button
+              onClick={onToggleSkateboard}
+              className={`flex items-center gap-1.5 px-3 py-2.5 rounded-2xl font-black text-xs md:text-sm tracking-wide uppercase shadow-xl border cursor-pointer active:scale-95 transition-all ${
+                isSkating
+                  ? 'bg-gradient-to-r from-lime-500 to-emerald-600 border-lime-300 text-slate-950 shadow-lime-500/30'
+                  : 'bg-slate-800/80 border-slate-600 text-slate-300'
+              }`}
+              title="Toggle Skateboard / Running [G]"
+            >
+              <span className="text-base">🛹</span>
+              <span>{isSkating ? 'SKATER [G]' : 'RUN [G]'}</span>
+            </button>
+          )}
+
           {/* Power Punch Action Button */}
           <button
             onClick={onPunch}

@@ -15,12 +15,14 @@ import {
 } from 'lucide-react';
 import { GameMode, GameSaveData } from '../game/types';
 import { audio } from '../game/audio';
-import { CHARACTERS } from '../game/storage';
+import { CHARACTERS, GAME_LEVELS } from '../game/storage';
 
 interface MainMenuProps {
   saveData: GameSaveData;
   onPlay: (mode: GameMode) => void;
   onOpenCharacters: () => void;
+  onOpenLevels: () => void;
+  onSelectCharacter?: (charId: string) => void;
   onOpenShop: () => void;
   onOpenLuckySpin: () => void;
   onOpenDailyRewards: () => void;
@@ -34,6 +36,8 @@ export const MainMenu: React.FC<MainMenuProps> = ({
   saveData,
   onPlay,
   onOpenCharacters,
+  onOpenLevels,
+  onSelectCharacter,
   onOpenShop,
   onOpenLuckySpin,
   onOpenDailyRewards,
@@ -45,6 +49,7 @@ export const MainMenu: React.FC<MainMenuProps> = ({
   const [selectedMode, setSelectedMode] = useState<GameMode>('ENDLESS');
 
   const selectedChar = CHARACTERS.find((c) => c.id === saveData.selectedCharacter) || CHARACTERS[0];
+  const selectedLevel = GAME_LEVELS.find((l) => l.id === (saveData.selectedLevel || 'DOWNTOWN')) || GAME_LEVELS[0];
 
   const handleStart = () => {
     audio.playClick();
@@ -144,8 +149,84 @@ export const MainMenu: React.FC<MainMenuProps> = ({
           </div>
         </div>
 
+        {/* Quick Character Picker Carousel */}
+        <div className="flex flex-col items-center mt-3 max-w-xl w-full px-2">
+          <div className="flex items-center justify-between w-full text-[11px] font-black text-slate-400 uppercase tracking-wider mb-1 px-1">
+            <span>QUICK RUNNER SELECT</span>
+            <button
+              onClick={() => {
+                audio.playClick();
+                onOpenCharacters();
+              }}
+              className="text-amber-400 hover:underline cursor-pointer"
+            >
+              ALL RUNNERS →
+            </button>
+          </div>
+          <div className="flex items-center gap-1.5 w-full overflow-x-auto py-1 px-1 no-scrollbar">
+            {CHARACTERS.map((char) => {
+              const isSelected = selectedChar.id === char.id;
+              const isUnlocked = saveData.unlockedCharacters.includes(char.id);
+
+              return (
+                <button
+                  key={char.id}
+                  onClick={() => {
+                    audio.playClick();
+                    if (isUnlocked && onSelectCharacter) {
+                      onSelectCharacter(char.id);
+                    } else {
+                      onOpenCharacters();
+                    }
+                  }}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border transition-all shrink-0 cursor-pointer text-xs font-black ${
+                    isSelected
+                      ? 'bg-amber-500/25 border-amber-400 text-amber-300 shadow-md scale-105'
+                      : isUnlocked
+                      ? 'bg-slate-900/80 border-slate-700/80 text-slate-300 hover:bg-slate-800'
+                      : 'bg-slate-950/60 border-slate-800 text-slate-500 opacity-60'
+                  }`}
+                  title={char.tagline}
+                >
+                  <span className="text-base">{char.avatarEmoji || '🏃'}</span>
+                  <span>{char.name}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Selected Level / Track Card */}
+        <button
+          onClick={() => {
+            audio.playClick();
+            onOpenLevels();
+          }}
+          className="mt-3.5 flex items-center gap-3 bg-gradient-to-r from-slate-900/95 via-slate-850 to-slate-900/95 hover:border-emerald-400 border-2 border-emerald-500/60 rounded-2xl px-4 py-2.5 shadow-xl active:scale-95 transition-all text-left max-w-xl w-full mx-2 cursor-pointer"
+        >
+          <div className="w-10 h-10 rounded-xl bg-slate-800 border border-white/10 flex items-center justify-center text-2xl shadow-inner shrink-0">
+            {selectedLevel.icon}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-black text-emerald-400 uppercase tracking-wider">
+                TRACK: {selectedLevel.name}
+              </span>
+              {selectedLevel.targetTrainEntries && (
+                <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                  REAR ENTRY
+                </span>
+              )}
+            </div>
+            <div className="text-xs font-semibold text-slate-300 truncate">
+              {selectedLevel.description}
+            </div>
+          </div>
+          <span className="text-xs font-black text-emerald-400 shrink-0">CHANGE →</span>
+        </button>
+
         {/* Game Mode Selector */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-6 max-w-xl w-full px-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4 max-w-xl w-full px-2">
           <button
             onClick={() => {
               audio.playClick();
@@ -210,7 +291,7 @@ export const MainMenu: React.FC<MainMenuProps> = ({
         {/* Big PLAY Button */}
         <button
           onClick={handleStart}
-          className="group relative mt-6 px-10 md:px-14 py-4 md:py-5 rounded-2xl font-black text-xl md:text-2xl font-arcade tracking-widest text-white uppercase bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:brightness-110 active:scale-95 shadow-[0_10px_35px_rgba(16,185,129,0.5)] border-2 border-emerald-300 transition-all flex items-center gap-3 cursor-pointer"
+          className="group relative mt-5 px-10 md:px-14 py-4 md:py-5 rounded-2xl font-black text-xl md:text-2xl font-arcade tracking-widest text-white uppercase bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:brightness-110 active:scale-95 shadow-[0_10px_35px_rgba(16,185,129,0.5)] border-2 border-emerald-300 transition-all flex items-center gap-3 cursor-pointer"
         >
           <Play size={28} className="fill-white group-hover:scale-110 transition-transform" />
           <span>START RUN</span>
@@ -219,7 +300,18 @@ export const MainMenu: React.FC<MainMenuProps> = ({
 
       {/* Bottom Hub Navigation */}
       <div className="w-full max-w-5xl mx-auto pt-2">
-        <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
+        <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
+          {/* Tracks / Levels */}
+          <button
+            onClick={() => {
+              audio.playClick();
+              onOpenLevels();
+            }}
+            className="flex flex-col items-center justify-center p-2.5 rounded-2xl bg-slate-900/80 hover:bg-slate-800/90 border border-slate-700/70 shadow-lg text-slate-300 hover:text-emerald-300 active:scale-95 transition-all"
+          >
+            <span className="text-xl mb-0.5">🗺️</span>
+            <span className="text-[11px] font-extrabold uppercase">TRACKS</span>
+          </button>
           {/* Characters */}
           <button
             onClick={() => {

@@ -1,6 +1,7 @@
 import {
   CharacterDef,
   DailyReward,
+  GameLevelDef,
   GameSaveData,
   GameSettings,
   HoverboardDef,
@@ -10,13 +11,128 @@ import {
   RedeemCodeResult
 } from './types';
 
+export const GAME_LEVELS: GameLevelDef[] = [
+  {
+    id: 'DOWNTOWN',
+    name: 'Cartoon Downtown',
+    theme: 'Sunny Metropolis',
+    description: 'Bright cartoon skyscrapers, parkway rails & beginner cartoon trains.',
+    weather: 'DAY',
+    speedModifier: 1.0,
+    icon: '🏙️',
+  },
+  {
+    id: 'TRAIN_YARD',
+    name: 'Train Yard Express',
+    theme: 'Moving Cartoon Trains',
+    description: 'High-speed moving cartoon trains! Skate into their OPEN REAR entrances to ride inside!',
+    weather: 'SUNSET',
+    speedModifier: 1.15,
+    targetTrainEntries: 3,
+    icon: '🚂',
+  },
+  {
+    id: 'NEON_CYBER',
+    name: 'Neon Cyber City',
+    theme: 'Futuristic Grid',
+    description: 'Pulsating neon light arches, holographic ramps & high-voltage bullet trains.',
+    weather: 'NIGHT',
+    speedModifier: 1.3,
+    icon: '⚡',
+  },
+  {
+    id: 'SUNSET_BEACH',
+    name: 'Crazy Sunset Coast',
+    theme: 'Boardwalk Express',
+    description: 'Golden hour coastline, palm trees, ocean bridges & cartoon freight trains.',
+    weather: 'SUNSET',
+    speedModifier: 1.1,
+    icon: '🏖️',
+  },
+  {
+    id: 'TRAIN_CHALLENGE',
+    name: 'Train Rear Entry Challenge',
+    theme: 'Master Skate Stunt',
+    description: 'CHALLENGE: Skate and enter 3 moving cartoon trains through their rear doors to clear the stage!',
+    weather: 'DAY',
+    speedModifier: 1.25,
+    targetTrainEntries: 3,
+    icon: '🎯',
+  },
+];
+
 export const CHARACTERS: CharacterDef[] = [
+  {
+    id: 'peel_pete',
+    name: 'Peel Pete',
+    tagline: 'Hilarious Cartoon Banana Skater',
+    gender: 'cartoon',
+    unlockedByDefault: true,
+    avatarEmoji: '🍌',
+    funnyQuote: '"I never slip up... except when doing kickflips!"',
+    perkDescription: 'Slick peel agility: +15% faster skateboard carving & +20% score',
+    perkMultiplierBonus: 1,
+    primaryColor: '#facc15', // Banana peel yellow
+    secondaryColor: '#16a34a', // Leaf green stem hat
+    accentColor: '#1e293b', // Black sunglasses
+    hairColor: '#65a30d',
+    skinColor: '#fef08a',
+  },
+  {
+    id: 'officer_bob',
+    name: 'Officer Bob',
+    tagline: 'Donut-Loving Bumbling Cop',
+    gender: 'cartoon',
+    unlockedByDefault: true,
+    avatarEmoji: '🍩',
+    funnyQuote: '"Forget the siren, hand over that strawberry glazed donut!"',
+    perkDescription: 'Chubby momentum: Absorbs 1 free barrier hit per run & smells out coins',
+    perkMagnetBonus: 0.2,
+    primaryColor: '#2563eb', // Snug police blue uniform
+    secondaryColor: '#1e293b', // Dark trousers
+    accentColor: '#ec4899', // Frosted pink cartoon donut
+    hairColor: '#475569',
+    skinColor: '#fed7aa',
+  },
+  {
+    id: 'toadster',
+    name: 'Toadster',
+    tagline: 'Radical Street Frog',
+    gender: 'cartoon',
+    priceCoins: 2500,
+    avatarEmoji: '🐸',
+    funnyQuote: '"Ribbit! Ollie right into that train car, dude!"',
+    perkDescription: 'Frog legs: Massive +35% Super Jump leap height & auto-snaps to train roofs',
+    primaryColor: '#22c55e', // Neon frog lime
+    secondaryColor: '#f97316', // Orange backwards skater cap
+    accentColor: '#ef4444', // Red sneakers
+    hairColor: '#15803d',
+    skinColor: '#86efac',
+  },
+  {
+    id: 'gizmo',
+    name: 'Gizmo',
+    tagline: 'Wobbly Retro Bot',
+    gender: 'cartoon',
+    priceCoins: 4500,
+    avatarEmoji: '🤖',
+    funnyQuote: '"BEEP BOOP! REAR TRAIN ENTRANCE DETECTED!"',
+    perkDescription: 'Magnetic antenna: Starts every run with continuous Coin Magnet pull',
+    perkMagnetBonus: 0.35,
+    primaryColor: '#94a3b8', // Retro tin metal
+    secondaryColor: '#0284c7', // Cyan chest screen
+    accentColor: '#eab308', // Flashing yellow antenna bulb
+    hairColor: '#f59e0b',
+    skinColor: '#cbd5e1',
+  },
   {
     id: 'dash',
     name: 'Dash',
     tagline: 'Street Parkour Prodigy',
     gender: 'male',
     unlockedByDefault: true,
+    avatarEmoji: '⚡',
+    funnyQuote: '"Ready, set, skate! Let\'s outrun that police dog!"',
     perkDescription: 'Balanced agility and fast recovery',
     perkMultiplierBonus: 1,
     primaryColor: '#ef4444', // Red hoodie
@@ -31,6 +147,8 @@ export const CHARACTERS: CharacterDef[] = [
     tagline: 'Cyber Neon Hacker',
     gender: 'female',
     priceCoins: 3000,
+    avatarEmoji: '🛹',
+    funnyQuote: '"Hacking the subway schedule to catch the express train!"',
     perkDescription: '+25% Coin Magnet attraction radius',
     perkMagnetBonus: 0.25,
     primaryColor: '#06b6d4', // Cyan cyber jacket
@@ -45,6 +163,8 @@ export const CHARACTERS: CharacterDef[] = [
     tagline: 'Skate Yard Legend',
     gender: 'male',
     priceCoins: 6000,
+    avatarEmoji: '🎧',
+    funnyQuote: '"Drop in on the roof, kickflip off the caboose!"',
     perkDescription: '+35% Longer 2X Double Coin duration',
     perkCoinDurationBonus: 0.35,
     primaryColor: '#10b981', // Emerald oversized hoodie
@@ -59,6 +179,8 @@ export const CHARACTERS: CharacterDef[] = [
     tagline: 'Prototype Android Speedster',
     gender: 'android',
     priceDiamonds: 50,
+    avatarEmoji: '🌌',
+    funnyQuote: '"Calculating optimal trajectory for rear train insertion."',
     perkDescription: 'Starts every run with an automatic 10s Hoverboard shield',
     primaryColor: '#6366f1', // Indigo sleek armor
     secondaryColor: '#0f172a', // Obsidian carbon fiber
@@ -72,6 +194,8 @@ export const CHARACTERS: CharacterDef[] = [
     tagline: 'Electrified City Protector',
     gender: 'legendary',
     priceDiamonds: 120,
+    avatarEmoji: '👑',
+    funnyQuote: '"None can outpace the thunder!"',
     perkDescription: 'Permanent +2x Score Multiplier & 50% more Blue Diamonds',
     perkMultiplierBonus: 2,
     primaryColor: '#eab308', // Gold armor with cape
@@ -132,6 +256,16 @@ export const OUTFITS: OutfitDef[] = [
 ];
 
 export const HOVERBOARDS: HoverboardDef[] = [
+  {
+    id: 'pro_skater',
+    name: 'Crazy Street Skateboard',
+    description: '7-ply maple skateboard deck with custom cartoon grip tape, aluminum trucks & spinning urethane wheels.',
+    unlockedByDefault: true,
+    colorA: '#f59e0b',
+    colorB: '#1e293b',
+    glowColor: '#fbbf24',
+    trailType: 'spark',
+  },
   {
     id: 'classic',
     name: 'Classic Cruiser',
@@ -309,12 +443,18 @@ export function loadGameData(): GameSaveData {
         diamonds: data.diamonds ?? 10,
         hoverboardsStock: data.hoverboardsStock ?? 5,
         highScore: data.highScore ?? 0,
-        selectedCharacter: data.selectedCharacter ?? 'dash',
-        unlockedCharacters: data.unlockedCharacters ?? ['dash'],
-        selectedOutfit: data.selectedOutfit ?? { dash: 'dash_default' },
-        unlockedOutfits: data.unlockedOutfits ?? ['dash_default'],
-        selectedHoverboard: data.selectedHoverboard ?? 'classic',
-        unlockedHoverboards: data.unlockedHoverboards ?? ['classic'],
+        selectedCharacter: data.selectedCharacter ?? 'peel_pete',
+        unlockedCharacters: data.unlockedCharacters
+          ? Array.from(new Set([...data.unlockedCharacters, 'peel_pete', 'officer_bob', 'dash']))
+          : ['peel_pete', 'officer_bob', 'dash'],
+        selectedOutfit: data.selectedOutfit ?? { dash: 'dash_default', peel_pete: 'peel_pete_default' },
+        unlockedOutfits: data.unlockedOutfits ?? ['dash_default', 'peel_pete_default'],
+        selectedHoverboard: data.selectedHoverboard ?? 'pro_skater',
+        unlockedHoverboards: data.unlockedHoverboards
+          ? Array.from(new Set([...data.unlockedHoverboards, 'classic', 'pro_skater']))
+          : ['classic', 'pro_skater'],
+        selectedLevel: data.selectedLevel ?? 'DOWNTOWN',
+        isSkateboardMode: data.isSkateboardMode !== undefined ? data.isSkateboardMode : true,
         powerUpLevels: {
           magnet: data.powerUpLevels?.magnet ?? 1,
           superJump: data.powerUpLevels?.superJump ?? 1,
@@ -338,6 +478,7 @@ export function loadGameData(): GameSaveData {
           bestScore: data.stats?.bestScore ?? 0,
           highestMultiplier: data.stats?.highestMultiplier ?? 1,
           trainsSurfed: data.stats?.trainsSurfed ?? 0,
+          trainsEntered: data.stats?.trainsEntered ?? 0,
           policeEscapes: data.stats?.policeEscapes ?? 0,
         },
         settings: {
@@ -357,12 +498,14 @@ export function loadGameData(): GameSaveData {
     diamonds: 10,
     hoverboardsStock: 5,
     highScore: 0,
-    selectedCharacter: 'dash',
-    unlockedCharacters: ['dash'],
-    selectedOutfit: { dash: 'dash_default' },
-    unlockedOutfits: ['dash_default'],
-    selectedHoverboard: 'classic',
-    unlockedHoverboards: ['classic'],
+    selectedCharacter: 'peel_pete',
+    unlockedCharacters: ['peel_pete', 'officer_bob', 'dash'],
+    selectedOutfit: { dash: 'dash_default', peel_pete: 'peel_pete_default' },
+    unlockedOutfits: ['dash_default', 'peel_pete_default'],
+    selectedHoverboard: 'pro_skater',
+    unlockedHoverboards: ['classic', 'pro_skater'],
+    selectedLevel: 'DOWNTOWN',
+    isSkateboardMode: true,
     powerUpLevels: {
       magnet: 1,
       superJump: 1,
@@ -386,6 +529,7 @@ export function loadGameData(): GameSaveData {
       bestScore: 0,
       highestMultiplier: 1,
       trainsSurfed: 0,
+      trainsEntered: 0,
       policeEscapes: 0,
     },
     settings: DEFAULT_SETTINGS,

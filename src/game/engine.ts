@@ -23,6 +23,8 @@ export interface EngineCallbacks {
     policeDistance: number;
     policeWarning: boolean;
     hasHoverboard: boolean;
+    isInsideTrain?: boolean;
+    isSkating?: boolean;
   }) => void;
   onGameOver: (summary: {
     score: number;
@@ -87,6 +89,11 @@ export class DashEngine {
   private climbStartY = 0;
   private climbTargetX = 0;
   private climbTargetY = 3.6;
+
+  // Skateboard & Train Interior State
+  public isSkating = true;
+  public isInsideTrain = false;
+  private currentTrainObs: ObstacleInstance | null = null;
 
   // Power Punch Action
   private isPunching = false;
@@ -222,6 +229,9 @@ export class DashEngine {
 
     // 6. Spawn Rigs
     this.playerRig = new PlayerRig(this.currentCharacter, this.currentOutfit, this.currentHoverboard);
+    this.isSkating = this.saveData.isSkateboardMode !== false;
+    this.playerRig.isSkating = this.isSkating;
+    this.playerRig.setSkateboardVisible(this.isSkating);
     this.scene.add(this.playerRig.group);
 
     this.policeRig = new PoliceOfficerRig();
@@ -270,6 +280,7 @@ export class DashEngine {
   // --- Controls & Input ---
   public moveLeft() {
     if (!this.isRunning || this.isPaused || this.isClimbing) return;
+    if (this.isInsideTrain) return; // Safely stay inside train aisle
     if (this.targetLane > 0) {
       this.targetLane--;
       audio.playLaneSwitch();
@@ -284,6 +295,7 @@ export class DashEngine {
 
   public moveRight() {
     if (!this.isRunning || this.isPaused || this.isClimbing) return;
+    if (this.isInsideTrain) return; // Safely stay inside train aisle
     if (this.targetLane < 2) {
       this.targetLane++;
       audio.playLaneSwitch();
@@ -299,6 +311,16 @@ export class DashEngine {
   public jump() {
     if (!this.isRunning || this.isPaused || this.isClimbing) return;
 
+    // Jumping inside train performs a quick skateboard Ollie hop
+    if (this.isInsideTrain) {
+      if (this.isGrounded) {
+        this.velocityY = 6.5;
+        this.isGrounded = false;
+        audio.playOllie();
+      }
+      return;
+    }
+
     // If alongside a train, jumping grabs the side ladder and vaults up onto the roof!
     const nearbyTrain = this.getNearbyTrainForClimb();
     if (nearbyTrain && this.currentGroundY < (nearbyTrain.roofHeight || 3.6)) {
@@ -311,7 +333,11 @@ export class DashEngine {
       this.velocityY = this.jumpForce * superBoost;
       this.isGrounded = false;
       this.isSliding = false;
-      audio.playJump();
+      if (this.isSkating) {
+        audio.playOllie();
+      } else {
+        audio.playJump();
+      }
       this.callbacks.onMissionProgress?.('JUMPS', 1);
     }
   }
@@ -390,9 +416,30 @@ export class DashEngine {
       if (!this.isGrounded) {
         this.velocityY = -22;
       }
-      audio.playSlide();
+      if (this.isSkating) {
+        audio.playCartoonSlip();
+      } else {
+        audio.playSlide();
+      }
       this.callbacks.onMissionProgress?.('SLIDES', 1);
     }
+  }
+
+  public toggleSkateboard() {
+    this.isSkating = !this.isSkating;
+    this.playerRig.isSkating = this.isSkating;
+    this.playerRig.setSkateboardVisible(this.isSkating && this.powerUps.hoverboard <= 0 && this.powerUps.jetpack <= 0);
+    this.saveData.isSkateboardMode = this.isSkating;
+    if (this.isSkating) {
+      audio.playOllie();
+    }
+  }
+
+  public setSkateboard(enabled: boolean) {
+    this.isSkating = enabled;
+    this.playerRig.isSkating = enabled;
+    this.playerRig.setSkateboardVisible(enabled && this.powerUps.hoverboard <= 0 && this.powerUps.jetpack <= 0);
+    this.saveData.isSkateboardMode = enabled;
   }
 
   public activateHoverboard(duration = 20) {
@@ -495,6 +542,8 @@ export class DashEngine {
       policeDistance: this.policeDistance,
       policeWarning: this.policeWarning,
       hasHoverboard: this.powerUps.hoverboard > 0,
+      isInsideTrain: this.isInsideTrain,
+      isSkating: this.isSkating,
     });
   };
 
@@ -555,6 +604,27 @@ export class DashEngine {
         this.velocityY = 0;
         this.currentX = this.climbTargetX;
       }
+    } else if (this.isInsideTrain && this.currentTrainObs) {
+      // Train Interior Riding: center firmly on the train aisle
+      const trainX = LANES[this.currentTrainObs.lane];
+      this.currentX = THREE.MathUtils.damp(this.currentX, trainX, 22, delta);
+      this.currentGroundY = 0;
+      this.currentY = 0;
+      this.isGrounded = true;
+      this.velocityY = 0;
+
+      // Front exit ramp launch: smoothly Ollie out of the front doorway onto tracks!
+      const trainLen = this.currentTrainObs.trainLength || 18;
+      const frontExitZ = this.currentTrainObs.z - trainLen / 2 + 0.6;
+      if (this.currentZ <= frontExitZ) {
+        this.isInsideTrain = false;
+        this.currentTrainObs = null;
+        this.velocityY = 11;
+        this.isGrounded = false;
+        this.runScore += 1000;
+        audio.playOllie();
+        audio.playVictory();
+      }
     } else {
       // Smooth Lane Interpolation (Exponential Damping)
       const targetX = LANES[this.targetLane];
@@ -569,7 +639,7 @@ export class DashEngine {
       this.velocityY = 0;
       this.isGrounded = false;
       this.currentGroundY = 7.5;
-    } else if (!this.isClimbing) {
+    } else if (!this.isClimbing && !this.isInsideTrain) {
       // Vertical Jump & Gravity (works on ground and on train roofs!)
       if (!this.isGrounded) {
         this.velocityY += this.gravity * delta;
@@ -579,6 +649,9 @@ export class DashEngine {
           this.currentY = this.currentGroundY;
           this.velocityY = 0;
           this.isGrounded = true;
+          if (this.isSkating) {
+            audio.playSkateLand();
+          }
         }
       }
     }
@@ -623,14 +696,40 @@ export class DashEngine {
     this.playerRig.group.position.set(this.currentX, this.currentY, this.currentZ);
 
     // Animation State
-    let animState: 'RUN' | 'JUMP' | 'SLIDE' | 'HOVER' | 'STUMBLE' | 'BUSTED' | 'CLIMB' | 'PUNCH' | 'JETPACK' = 'RUN';
-    if (this.isClimbing) animState = 'CLIMB';
-    else if (this.isPunching) animState = 'PUNCH';
-    else if (this.powerUps.jetpack > 0) animState = 'JETPACK';
-    else if (this.powerUps.hoverboard > 0) animState = 'HOVER';
-    else if (!this.isGrounded) animState = 'JUMP';
-    else if (this.isSliding) animState = 'SLIDE';
-    else if (this.isStumbling) animState = 'STUMBLE';
+    let animState:
+      | 'RUN'
+      | 'JUMP'
+      | 'SLIDE'
+      | 'HOVER'
+      | 'STUMBLE'
+      | 'BUSTED'
+      | 'CLIMB'
+      | 'PUNCH'
+      | 'JETPACK'
+      | 'SKATE'
+      | 'SKATE_OLLIE'
+      | 'SKATE_SLIDE'
+      | 'INSIDE_TRAIN' = 'RUN';
+
+    if (this.isInsideTrain) {
+      animState = 'INSIDE_TRAIN';
+    } else if (this.isClimbing) {
+      animState = 'CLIMB';
+    } else if (this.isPunching) {
+      animState = 'PUNCH';
+    } else if (this.powerUps.jetpack > 0) {
+      animState = 'JETPACK';
+    } else if (this.powerUps.hoverboard > 0) {
+      animState = 'HOVER';
+    } else if (!this.isGrounded) {
+      animState = this.isSkating ? 'SKATE_OLLIE' : 'JUMP';
+    } else if (this.isSliding) {
+      animState = this.isSkating ? 'SKATE_SLIDE' : 'SLIDE';
+    } else if (this.isStumbling) {
+      animState = 'STUMBLE';
+    } else {
+      animState = this.isSkating ? 'SKATE' : 'RUN';
+    }
 
     this.playerRig.animate(time, animState, effectiveSpeed / this.baseSpeed, laneOffsetRatio);
   }
@@ -748,6 +847,11 @@ export class DashEngine {
             this.runDiamonds += 1;
             this.runScore += 250 * this.scoreMultiplier;
             audio.playDiamond();
+          } else if (col.type === 'DONUT') {
+            this.runCoins += 10;
+            this.runScore += 500 * this.scoreMultiplier;
+            audio.playDonutChomp();
+            this.callbacks.onMissionProgress?.('COINS', 10);
           } else if (col.type === 'POWERUP_MAGNET') {
             const lvl = this.saveData.powerUpLevels.magnet;
             this.powerUps.magnet = 15 + lvl * 3;
@@ -787,6 +891,8 @@ export class DashEngine {
   // --- Obstacle Collision Detection ---
   private checkCollisions(delta: number) {
     if (this.isInvulnerable) return;
+    // When riding inside train carriage, external obstacle collisions are safely bypassed!
+    if (this.isInsideTrain) return;
 
     // Player bounding box (slimmer when sliding)
     const playerHeight = this.isSliding ? 0.8 : 2.0;
@@ -801,7 +907,7 @@ export class DashEngine {
     for (const chunk of this.worldManager.chunks) {
       for (const obs of chunk.obstacles) {
         // Distance check first for performance
-        if (Math.abs(obs.z - this.currentZ) > 12) continue;
+        if (Math.abs(obs.z - this.currentZ) > 14) continue;
 
         // Check train roof freedom & side climbing
         if (obs.canClimbRoof && obs.roofHeight) {
@@ -810,8 +916,9 @@ export class DashEngine {
           obs.mesh.position.y = 0;
           obs.mesh.position.x = LANES[obs.lane];
 
+          const trainLen = obs.trainLength || (obs.type === 'CARTOON_TRAIN_HOLLOW' ? 18 : 14);
           const isOverTrainX = Math.abs(LANES[obs.lane] - this.currentX) < 1.45;
-          const isOverTrainZ = Math.abs(obs.z - this.currentZ) < 7.6;
+          const isOverTrainZ = Math.abs(obs.z - this.currentZ) < trainLen / 2 + 0.5;
 
           // 1. Standing, walking, and moving freely on top of the train roof
           if (isOverTrainX && isOverTrainZ && this.currentY >= obs.roofHeight - 0.45) {
@@ -836,6 +943,44 @@ export class DashEngine {
               this.startClimb(obs);
               return;
             }
+          }
+        }
+
+        // CARTOON TRAIN HOLLOW ENTRY & FRONT BARRIER
+        if (obs.type === 'CARTOON_TRAIN_HOLLOW') {
+          const trainLen = obs.trainLength || 18;
+          const rearZ = obs.z + trainLen / 2;
+          const frontZ = obs.z - trainLen / 2;
+          const distLane = Math.abs(LANES[obs.lane] - this.currentX);
+
+          // 1. OPEN REAR ENTRANCE:
+          // Player rides skateboard and enters smoothly through the open rear entrance
+          const isAtRearDoor = (this.currentZ <= rearZ + 1.2 && this.currentZ >= rearZ - 2.8);
+          if (distLane < 1.35 && isAtRearDoor && this.currentY < 3.2) {
+            this.isInsideTrain = true;
+            this.currentTrainObs = obs;
+            obs.entered = true;
+            this.targetLane = obs.lane;
+            this.currentX = LANES[obs.lane];
+            this.currentGroundY = 0;
+            this.currentY = 0;
+            this.isGrounded = true;
+            this.velocityY = 0;
+            this.isSliding = false;
+            this.isStumbling = false;
+            this.runScore += 500;
+            this.saveData.stats.trainsEntered = (this.saveData.stats.trainsEntered || 0) + 1;
+            this.callbacks.onMissionProgress?.('TRAIN_ENTRY', 1);
+            audio.playTrainWhistle();
+            audio.playTrainInteriorEntry();
+            return;
+          }
+
+          // 2. FRONT COW-CATCHER CRASH (Strictly no entering through front of train):
+          const isAtFrontNose = (this.currentZ <= frontZ + 2.2 && this.currentZ >= frontZ - 1.6);
+          if (distLane < 1.35 && isAtFrontNose && !onRoofOfTrain && this.currentY < 3.2) {
+            this.triggerGameOver('Crashed into Front Cowcatcher! Enter trains through the OPEN REAR entrance!');
+            return;
           }
         }
 
@@ -875,6 +1020,12 @@ export class DashEngine {
           // If police was already right on heels -> BUSTED!
           if (this.policeDistance < 4.5) {
             this.triggerGameOver('Busted by the Police Officer!');
+            return;
+          }
+
+          // If collision with hollow train front or body from outside
+          if (obs.type === 'CARTOON_TRAIN_HOLLOW') {
+            this.triggerGameOver('Crashed into Cartoon Train! Enter via the OPEN REAR entrance!');
             return;
           }
 

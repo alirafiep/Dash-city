@@ -16,10 +16,19 @@ export const CharacterSelectModal: React.FC<CharacterSelectModalProps> = ({
   onClose,
 }) => {
   const [selectedCharId, setSelectedCharId] = useState<string>(saveData.selectedCharacter);
+  const [filterCategory, setFilterCategory] = useState<'ALL' | 'CARTOON' | 'HUMAN' | 'LEGENDARY'>('ALL');
 
   const activeChar = CHARACTERS.find((c) => c.id === selectedCharId) || CHARACTERS[0];
   const isUnlocked = saveData.unlockedCharacters.includes(activeChar.id);
   const isEquipped = saveData.selectedCharacter === activeChar.id;
+
+  // Filtered characters
+  const displayedCharacters = CHARACTERS.filter((c) => {
+    if (filterCategory === 'CARTOON') return c.gender === 'cartoon';
+    if (filterCategory === 'HUMAN') return c.gender === 'male' || c.gender === 'female';
+    if (filterCategory === 'LEGENDARY') return c.gender === 'legendary';
+    return true;
+  });
 
   // Outfits for active character
   const availableOutfits = OUTFITS.filter((o) => o.characterId === activeChar.id);
@@ -122,11 +131,31 @@ export const CharacterSelectModal: React.FC<CharacterSelectModalProps> = ({
         <div className="flex-1 grid grid-cols-1 md:grid-cols-12 overflow-y-auto">
           {/* Left: Characters Roster (md:col-span-5) */}
           <div className="md:col-span-5 p-4 border-r border-slate-800 flex flex-col gap-2.5">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
+            {/* Filter Pills */}
+            <div className="grid grid-cols-4 gap-1 mb-1">
+              {(['ALL', 'CARTOON', 'HUMAN', 'LEGENDARY'] as const).map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => {
+                    audio.playClick();
+                    setFilterCategory(cat);
+                  }}
+                  className={`py-1 text-[10px] font-black rounded-lg border transition-all cursor-pointer ${
+                    filterCategory === cat
+                      ? 'bg-amber-500/20 text-amber-300 border-amber-400'
+                      : 'bg-slate-950/40 text-slate-400 border-slate-800 hover:text-slate-200'
+                  }`}
+                >
+                  {cat === 'CARTOON' ? '🍌 CARTOON' : cat}
+                </button>
+              ))}
+            </div>
+
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-0.5">
               Select Character
             </span>
 
-            {CHARACTERS.map((char) => {
+            {displayedCharacters.map((char) => {
               const unlocked = saveData.unlockedCharacters.includes(char.id);
               const isSelected = selectedCharId === char.id;
               const equipped = saveData.selectedCharacter === char.id;
@@ -143,10 +172,10 @@ export const CharacterSelectModal: React.FC<CharacterSelectModalProps> = ({
                 >
                   <div className="flex items-center gap-3">
                     <div
-                      className="w-12 h-12 rounded-xl flex items-center justify-center font-black text-xl text-white shadow-md relative"
+                      className="w-12 h-12 rounded-xl flex items-center justify-center font-black text-2xl text-white shadow-md relative shrink-0"
                       style={{ backgroundColor: char.primaryColor }}
                     >
-                      {char.name[0]}
+                      {char.avatarEmoji || char.name[0]}
                       {!unlocked && (
                         <div className="absolute inset-0 bg-black/60 rounded-xl flex items-center justify-center">
                           <Lock size={16} className="text-yellow-400" />
@@ -156,6 +185,11 @@ export const CharacterSelectModal: React.FC<CharacterSelectModalProps> = ({
                     <div>
                       <div className="font-extrabold text-sm md:text-base text-white flex items-center gap-1.5">
                         {char.name}
+                        {char.gender === 'cartoon' && (
+                          <span className="bg-lime-500/20 text-lime-300 text-[10px] font-black px-1.5 py-0.5 rounded border border-lime-500/40">
+                            CARTOON
+                          </span>
+                        )}
                         {char.gender === 'legendary' && (
                           <span className="bg-amber-500/20 text-amber-300 text-[10px] font-black px-1.5 py-0.5 rounded border border-amber-500/40">
                             LEGENDARY
@@ -199,13 +233,21 @@ export const CharacterSelectModal: React.FC<CharacterSelectModalProps> = ({
                     {activeChar.name}
                   </h3>
                   <p className="text-xs text-slate-300 mt-1 max-w-xs">{activeChar.tagline}</p>
+
+                  {/* Funny Cartoon Quote Speech Bubble */}
+                  {activeChar.funnyQuote && (
+                    <div className="mt-2.5 inline-flex items-center gap-1.5 bg-yellow-400 text-slate-950 font-black text-xs px-3 py-1.5 rounded-2xl shadow-md border-2 border-yellow-300">
+                      <span>💬</span>
+                      <span>"{activeChar.funnyQuote}"</span>
+                    </div>
+                  )}
                 </div>
 
                 <div
-                  className="w-20 h-20 rounded-2xl flex items-center justify-center text-4xl font-black text-white shadow-2xl border-2 border-white/20"
+                  className="w-20 h-20 rounded-2xl flex items-center justify-center text-4xl font-black text-white shadow-2xl border-2 border-white/20 shrink-0"
                   style={{ backgroundColor: activeChar.primaryColor }}
                 >
-                  {activeChar.name[0]}
+                  {activeChar.avatarEmoji || activeChar.name[0]}
                 </div>
               </div>
 

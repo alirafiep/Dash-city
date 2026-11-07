@@ -575,6 +575,172 @@ class SoundEngine {
       osc.stop(t + idx * 0.08 + 0.25);
     });
   }
+
+  // --- Skateboard & Cartoon SFX ---
+
+  public playOllie() {
+    this.initContext();
+    if (!this.ctx || !this.sfxGain) return;
+
+    const t = this.ctx.currentTime;
+    // Wood tail snap pop
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(140, t);
+    osc.frequency.exponentialRampToValueAtTime(420, t + 0.06);
+    gain.gain.setValueAtTime(0.6, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+    osc.connect(gain);
+    gain.connect(this.sfxGain);
+    osc.start(t);
+    osc.stop(t + 0.08);
+
+    // Friction swoosh
+    const noise = this.createNoiseBuffer(0.12);
+    if (noise) {
+      const nGain = this.ctx.createGain();
+      nGain.gain.setValueAtTime(0.3, t);
+      nGain.gain.exponentialRampToValueAtTime(0.01, t + 0.12);
+      noise.connect(nGain);
+      nGain.connect(this.sfxGain);
+      noise.start(t);
+    }
+  }
+
+  public playSkateLand() {
+    this.initContext();
+    if (!this.ctx || !this.sfxGain) return;
+
+    const t = this.ctx.currentTime;
+    // Thump + wheel slap
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(90, t);
+    osc.frequency.exponentialRampToValueAtTime(30, t + 0.1);
+    gain.gain.setValueAtTime(0.5, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+    osc.connect(gain);
+    gain.connect(this.sfxGain);
+    osc.start(t);
+    osc.stop(t + 0.12);
+  }
+
+  public playBoing() {
+    this.initContext();
+    if (!this.ctx || !this.sfxGain) return;
+
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(220, t);
+    osc.frequency.linearRampToValueAtTime(580, t + 0.15);
+    osc.frequency.linearRampToValueAtTime(400, t + 0.25);
+    gain.gain.setValueAtTime(0.45, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
+    osc.connect(gain);
+    gain.connect(this.sfxGain);
+    osc.start(t);
+    osc.stop(t + 0.28);
+  }
+
+  public playTrainWhistle() {
+    this.initContext();
+    if (!this.ctx || !this.sfxGain) return;
+
+    const t = this.ctx.currentTime;
+    // Classic two-tone cartoon steam whistle
+    [466.16, 587.33].forEach((f) => {
+      if (!this.ctx || !this.sfxGain) return;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(f, t);
+      osc.frequency.setValueAtTime(f * 1.02, t + 0.1);
+      gain.gain.setValueAtTime(0.22, t);
+      gain.gain.linearRampToValueAtTime(0.25, t + 0.2);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
+
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(1200, t);
+
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.sfxGain);
+      osc.start(t);
+      osc.stop(t + 0.45);
+    });
+  }
+
+  public playTrainInteriorEntry() {
+    this.initContext();
+    if (!this.ctx || !this.sfxGain) return;
+
+    const t = this.ctx.currentTime;
+    // High-energy fanfare whoosh + bell ding
+    const bell = this.ctx.createOscillator();
+    const bGain = this.ctx.createGain();
+    bell.type = 'sine';
+    bell.frequency.setValueAtTime(1174.66, t); // D6
+    bGain.gain.setValueAtTime(0.5, t);
+    bGain.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+    bell.connect(bGain);
+    bGain.connect(this.sfxGain);
+    bell.start(t);
+    bell.stop(t + 0.5);
+
+    // Sub whoosh
+    const whoosh = this.createNoiseBuffer(0.35);
+    if (whoosh) {
+      const wFilter = this.ctx.createBiquadFilter();
+      wFilter.type = 'bandpass';
+      wFilter.frequency.setValueAtTime(300, t);
+      wFilter.frequency.exponentialRampToValueAtTime(1600, t + 0.2);
+      const wGain = this.ctx.createGain();
+      wGain.gain.setValueAtTime(0.4, t);
+      wGain.gain.exponentialRampToValueAtTime(0.01, t + 0.35);
+      whoosh.connect(wFilter);
+      wFilter.connect(wGain);
+      wGain.connect(this.sfxGain);
+      whoosh.start(t);
+    }
+  }
+
+  public playCartoonSlip() {
+    this.initContext();
+    if (!this.ctx || !this.sfxGain) return;
+
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(600, t);
+    osc.frequency.exponentialRampToValueAtTime(150, t + 0.22);
+    gain.gain.setValueAtTime(0.4, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+    osc.connect(gain);
+    gain.connect(this.sfxGain);
+    osc.start(t);
+    osc.stop(t + 0.25);
+  }
+
+  public playDonutChomp() {
+    this.initContext();
+    if (!this.ctx || !this.sfxGain) return;
+
+    const t = this.ctx.currentTime;
+    const noise = this.createNoiseBuffer(0.1);
+    if (!noise) return;
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0.45, t);
+    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
+    noise.connect(gain);
+    gain.connect(this.sfxGain);
+    noise.start(t);
+  }
 }
 
 export const audio = new SoundEngine();

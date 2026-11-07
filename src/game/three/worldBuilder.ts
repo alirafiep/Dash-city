@@ -11,12 +11,17 @@ export interface ObstacleInstance {
   mesh: THREE.Group;
   lane: number; // 0, 1, 2
   z: number;
-  type: 'JUMP_HURDLE' | 'SLIDE_BARRIER' | 'TRAIN_STATIONARY' | 'TRAIN_MOVING' | 'RAMP';
+  type: 'JUMP_HURDLE' | 'SLIDE_BARRIER' | 'TRAIN_STATIONARY' | 'TRAIN_MOVING' | 'RAMP' | 'CARTOON_TRAIN_HOLLOW';
   box: THREE.Box3;
   passed?: boolean;
   canClimbRoof?: boolean;
   roofHeight?: number;
   speed?: number; // for moving trains
+  isHollowCartoonTrain?: boolean;
+  trainLength?: number;
+  rearEntranceZ?: number;
+  frontExitZ?: number;
+  entered?: boolean;
 }
 
 export interface CollectibleInstance {
@@ -27,6 +32,7 @@ export interface CollectibleInstance {
   type:
     | 'COIN'
     | 'DIAMOND'
+    | 'DONUT'
     | 'POWERUP_MAGNET'
     | 'POWERUP_2X'
     | 'POWERUP_SHIELD'
@@ -305,51 +311,88 @@ export class WorldChunk {
       const laneX = LANES[laneIdx];
       const roll = Math.random();
 
-      if (allowTrain && (roll < 0.35 + difficulty * 0.1)) {
-        // Spawn Train
-        const isMoving = Math.random() < (0.25 + difficulty * 0.15);
-        const train = this.createTrainMesh(isMoving);
-        train.position.set(laneX, 0, localZ);
-        this.group.add(train);
+      if (allowTrain && (roll < 0.38 + difficulty * 0.12)) {
+        // Spawn Train (prefer hollow cartoon train with open rear entrance!)
+        const isHollow = Math.random() < 0.75;
+        const isMoving = Math.random() < (0.35 + difficulty * 0.15);
 
-        const trainLen = 14;
-        const box = new THREE.Box3();
-        // Set collision box
-        box.setFromCenterAndSize(
-          new THREE.Vector3(laneX, 1.8, this.baseZ + localZ),
-          new THREE.Vector3(2.6, 3.6, trainLen)
-        );
+        if (isHollow) {
+          const train = this.createCartoonHollowTrainMesh(isMoving);
+          train.position.set(laneX, 0, localZ);
+          this.group.add(train);
 
-        this.obstacles.push({
-          mesh: train,
-          lane: laneIdx,
-          z: this.baseZ + localZ,
-          type: isMoving ? 'TRAIN_MOVING' : 'TRAIN_STATIONARY',
-          box,
-          canClimbRoof: true,
-          roofHeight: 3.6,
-          speed: isMoving ? (8 + difficulty * 4) : 0,
-        });
-
-        // If stationary train, add a climbable ramp at the rear so player can run up!
-        if (!isMoving && Math.random() < 0.6) {
-          const ramp = this.createRampMesh();
-          ramp.position.set(laneX, 0, localZ + trainLen / 2 + 3);
-          this.group.add(ramp);
-
-          const rampBox = new THREE.Box3().setFromCenterAndSize(
-            new THREE.Vector3(laneX, 1.5, this.baseZ + localZ + trainLen / 2 + 3),
-            new THREE.Vector3(2.4, 3, 6)
+          const trainLen = 18;
+          const box = new THREE.Box3();
+          box.setFromCenterAndSize(
+            new THREE.Vector3(laneX, 1.9, this.baseZ + localZ),
+            new THREE.Vector3(2.7, 3.8, trainLen)
           );
+
           this.obstacles.push({
-            mesh: ramp,
+            mesh: train,
             lane: laneIdx,
-            z: this.baseZ + localZ + trainLen / 2 + 3,
-            type: 'RAMP',
-            box: rampBox,
+            z: this.baseZ + localZ,
+            type: 'CARTOON_TRAIN_HOLLOW',
+            box,
+            canClimbRoof: true,
+            roofHeight: 3.8,
+            speed: isMoving ? (7 + difficulty * 3) : 0,
+            isHollowCartoonTrain: true,
+            trainLength: trainLen,
+            rearEntranceZ: this.baseZ + localZ + trainLen / 2,
+            frontExitZ: this.baseZ + localZ - trainLen / 2,
+          });
+
+          // Interior collectibles: 2 Strawberry Frosted Donuts & 3 Golden Coins
+          [-4, 4].forEach((iz) => {
+            this.addDonut(laneIdx, laneX, localZ + iz, 1.25);
+          });
+          [-2, 0, 2].forEach((iz) => {
+            this.addCoin(laneIdx, laneX, localZ + iz, 1.25);
+          });
+        } else {
+          const train = this.createTrainMesh(isMoving);
+          train.position.set(laneX, 0, localZ);
+          this.group.add(train);
+
+          const trainLen = 14;
+          const box = new THREE.Box3();
+          box.setFromCenterAndSize(
+            new THREE.Vector3(laneX, 1.8, this.baseZ + localZ),
+            new THREE.Vector3(2.6, 3.6, trainLen)
+          );
+
+          this.obstacles.push({
+            mesh: train,
+            lane: laneIdx,
+            z: this.baseZ + localZ,
+            type: isMoving ? 'TRAIN_MOVING' : 'TRAIN_STATIONARY',
+            box,
             canClimbRoof: true,
             roofHeight: 3.6,
+            speed: isMoving ? (8 + difficulty * 4) : 0,
           });
+
+          // If stationary train, add a climbable ramp at the rear so player can run up!
+          if (!isMoving && Math.random() < 0.6) {
+            const ramp = this.createRampMesh();
+            ramp.position.set(laneX, 0, localZ + trainLen / 2 + 3);
+            this.group.add(ramp);
+
+            const rampBox = new THREE.Box3().setFromCenterAndSize(
+              new THREE.Vector3(laneX, 1.5, this.baseZ + localZ + trainLen / 2 + 3),
+              new THREE.Vector3(2.4, 3, 6)
+            );
+            this.obstacles.push({
+              mesh: ramp,
+              lane: laneIdx,
+              z: this.baseZ + localZ + trainLen / 2 + 3,
+              type: 'RAMP',
+              box: rampBox,
+              canClimbRoof: true,
+              roofHeight: 3.6,
+            });
+          }
         }
       } else if (roll < 0.7) {
         // Low Jump Hurdle (must jump)
@@ -479,6 +522,213 @@ export class WorldChunk {
     }
 
     // Lock train rotation strictly - train is 100% rigid and will never tilt, shake or derail
+    train.rotation.set(0, 0, 0);
+
+    return train;
+  }
+
+  private createCartoonHollowTrainMesh(isMoving: boolean): THREE.Group {
+    const train = new THREE.Group();
+    const length = 18;
+    const height = 3.8;
+    const width = 2.7;
+
+    // 1. Carriage Floor (smooth hollow walkway for skateboard)
+    const floorGeo = new THREE.BoxGeometry(width - 0.2, 0.25, length);
+    const floorMat = new THREE.MeshStandardMaterial({
+      color: 0x334155, // Slate rubber flooring
+      roughness: 0.7,
+      metalness: 0.2,
+    });
+    const floor = new THREE.Mesh(floorGeo, floorMat);
+    floor.position.y = 0.25;
+    floor.receiveShadow = true;
+    train.add(floor);
+
+    // 2. Carriage Roof (walkway on top too!)
+    const roofGeo = new THREE.BoxGeometry(width - 0.1, 0.2, length);
+    const roofMat = new THREE.MeshStandardMaterial({
+      color: 0x0284c7, // Vibrant cartoon cyan roof
+      roughness: 0.4,
+      metalness: 0.3,
+    });
+    const roof = new THREE.Mesh(roofGeo, roofMat);
+    roof.position.y = height;
+    roof.castShadow = true;
+    train.add(roof);
+
+    // Roof Guardrails
+    [-1, 1].forEach((side) => {
+      const rail = new THREE.Mesh(
+        new THREE.BoxGeometry(0.08, 0.3, length),
+        this.materials.railSteelMaterial
+      );
+      rail.position.set(side * (width / 2 - 0.15), height + 0.2, 0);
+      train.add(rail);
+    });
+
+    // 3. Left and Right Cartoon Walls with Windows
+    const bodyMat = isMoving ? this.materials.trainRedMaterial : this.materials.trainBlueMaterial;
+    [-1, 1].forEach((side) => {
+      const wallX = side * (width / 2 - 0.08);
+
+      // Lower wall panel
+      const lowerWall = new THREE.Mesh(new THREE.BoxGeometry(0.16, 1.2, length), bodyMat);
+      lowerWall.position.set(wallX, 0.85, 0);
+      lowerWall.castShadow = true;
+      train.add(lowerWall);
+
+      // Upper wall beam
+      const upperWall = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.5, length), bodyMat);
+      upperWall.position.set(wallX, height - 0.3, 0);
+      upperWall.castShadow = true;
+      train.add(upperWall);
+
+      // Vertical Window Pillars & Windows
+      const windowGlassMat = new THREE.MeshPhysicalMaterial({
+        color: 0x38bdf8,
+        transmission: 0.85,
+        transparent: true,
+        opacity: 0.6,
+        roughness: 0.1,
+      });
+
+      for (let wz = -6; wz <= 6; wz += 3) {
+        // Window Pillar
+        const pillar = new THREE.Mesh(new THREE.BoxGeometry(0.16, 1.8, 0.4), bodyMat);
+        pillar.position.set(wallX, 2.3, wz);
+        train.add(pillar);
+
+        // Window Glass Pane
+        const glass = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.6, 2.4), windowGlassMat);
+        glass.position.set(wallX, 2.3, wz + 1.5);
+        train.add(glass);
+      }
+    });
+
+    // 4. Interior Seats & Grab Handles
+    const seatMat = new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.5 });
+    for (let sz = -5; sz <= 5; sz += 2.5) {
+      [-1, 1].forEach((side) => {
+        const seat = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.4, 1.6), seatMat);
+        seat.position.set(side * 0.95, 0.55, sz);
+        train.add(seat);
+      });
+    }
+
+    // Interior Warm Yellow Lighting Tubes
+    const lightMat = new THREE.MeshBasicMaterial({ color: 0xfef08a });
+    [-4, 0, 4].forEach((lz) => {
+      const lamp = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 1.2, 8), lightMat);
+      lamp.rotation.z = Math.PI / 2;
+      lamp.position.set(0, height - 0.25, lz);
+      train.add(lamp);
+    });
+
+    // 5. WIDE OPEN REAR ENTRANCE (At z = +length / 2)
+    // Clear opening for the skateboard to enter!
+    const rearZ = length / 2;
+
+    // Glowing Neon Portal Arch around Rear Doorway
+    const neonGreenMat = new THREE.MeshBasicMaterial({ color: 0x22c55e });
+    const archTop = new THREE.Mesh(new THREE.BoxGeometry(width - 0.2, 0.25, 0.3), neonGreenMat);
+    archTop.position.set(0, height - 0.15, rearZ);
+    train.add(archTop);
+
+    [-1, 1].forEach((side) => {
+      const archPillar = new THREE.Mesh(new THREE.BoxGeometry(0.25, height - 0.5, 0.3), neonGreenMat);
+      archPillar.position.set(side * (width / 2 - 0.2), (height - 0.5) / 2 + 0.25, rearZ);
+      train.add(archPillar);
+
+      // Flashing Hazard Lantern
+      const lantern = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 8), new THREE.MeshBasicMaterial({ color: 0xfacc15 }));
+      lantern.position.set(side * (width / 2 + 0.1), height - 0.6, rearZ);
+      train.add(lantern);
+    });
+
+    // Rear Entrance Sign: "CARTOON TRAIN - ENTER REAR"
+    const signBoard = new THREE.Mesh(
+      new THREE.BoxGeometry(2.4, 0.45, 0.1),
+      new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.3 })
+    );
+    signBoard.position.set(0, height + 0.35, rearZ);
+    train.add(signBoard);
+
+    // Glowing Downward Chevron Arrow (Points right into the rear doorway!)
+    const arrowGeo = new THREE.ConeGeometry(0.25, 0.4, 4);
+    const arrowMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
+    const arrow = new THREE.Mesh(arrowGeo, arrowMat);
+    arrow.rotation.z = Math.PI; // Points downward into door
+    arrow.position.set(0, height - 0.45, rearZ + 0.1);
+    train.add(arrow);
+
+    // Skateboard Roll-in Ramp at Rear Threshold (seamless smooth transition onto floor)
+    const rampMesh = new THREE.Mesh(
+      new THREE.BoxGeometry(width - 0.4, 0.12, 1.2),
+      this.materials.hazardMaterial
+    );
+    rampMesh.position.set(0, 0.14, rearZ + 0.5);
+    rampMesh.rotation.x = -0.15; // Slopes up into the train floor!
+    train.add(rampMesh);
+
+    // 6. FRONT CAB (Closed to outside with cartoon face & smokestack)
+    const frontZ = -length / 2;
+
+    // Heavy Steel Cowcatcher Bumper
+    const bumper = new THREE.Mesh(
+      new THREE.BoxGeometry(width, 0.8, 0.6),
+      this.materials.hazardMaterial
+    );
+    bumper.position.set(0, 0.5, frontZ - 0.2);
+    bumper.castShadow = true;
+    train.add(bumper);
+
+    // Front Nose / Face
+    const noseGeo = new THREE.BoxGeometry(width - 0.2, height - 1.0, 0.6);
+    const noseMesh = new THREE.Mesh(noseGeo, bodyMat);
+    noseMesh.position.set(0, (height - 1.0) / 2 + 0.8, frontZ - 0.2);
+    train.add(noseMesh);
+
+    // Cute Expressive Cartoon Train Eyes on Front Cab!
+    const eyeWhiteGeo = new THREE.SphereGeometry(0.35, 16, 16);
+    const eyeWhiteMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const eyePupilGeo = new THREE.SphereGeometry(0.18, 12, 12);
+    const eyePupilMat = new THREE.MeshBasicMaterial({ color: 0x0284c7 });
+
+    [-0.65, 0.65].forEach((x) => {
+      const eye = new THREE.Mesh(eyeWhiteGeo, eyeWhiteMat);
+      eye.position.set(x, 2.6, frontZ - 0.52);
+      const pupil = new THREE.Mesh(eyePupilGeo, eyePupilMat);
+      pupil.position.set(0, 0, 0.2);
+      eye.add(pupil);
+      train.add(eye);
+    });
+
+    // Cartoon Steam Smokestack on Front Roof
+    const stackGeo = new THREE.CylinderGeometry(0.3, 0.2, 1.2, 12);
+    const stackMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8 });
+    const stack = new THREE.Mesh(stackGeo, stackMat);
+    stack.position.set(0, height + 0.6, frontZ + 1.6);
+    train.add(stack);
+
+    // Cartoon Puffy Smoke Clouds
+    const cloudMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.9 });
+    [1.3, 1.9, 2.6].forEach((y, i) => {
+      const puff = new THREE.Mesh(new THREE.SphereGeometry(0.28 + i * 0.12, 8, 8), cloudMat);
+      puff.position.set(0.05 * i, height + y, frontZ + 1.6 + i * 0.4);
+      train.add(puff);
+    });
+
+    // Front Exit Doorway Ramp (smooth launch out onto tracks)
+    const exitRamp = new THREE.Mesh(
+      new THREE.BoxGeometry(width - 0.4, 0.15, 1.4),
+      this.materials.hazardMaterial
+    );
+    exitRamp.position.set(0, 0.14, frontZ - 0.6);
+    exitRamp.rotation.x = 0.18; // Slopes down to rails
+    train.add(exitRamp);
+
+    // Strict zero-tilt balance
     train.rotation.set(0, 0, 0);
 
     return train;
@@ -644,6 +894,53 @@ export class WorldChunk {
       z: this.baseZ + z,
       y,
       type: 'DIAMOND',
+      initialY: y,
+    });
+  }
+
+  public addDonut(laneIdx: number, x: number, z: number, y: number) {
+    const donutGroup = new THREE.Group();
+
+    // Dough ring
+    const doughGeo = new THREE.TorusGeometry(0.32, 0.14, 12, 18);
+    const doughMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.8 });
+    const dough = new THREE.Mesh(doughGeo, doughMat);
+    donutGroup.add(dough);
+
+    // Strawberry Glaze
+    const frostGeo = new THREE.TorusGeometry(0.33, 0.11, 12, 18);
+    const frostMat = new THREE.MeshStandardMaterial({
+      color: 0xf43f5e,
+      roughness: 0.2,
+      emissive: 0xf43f5e,
+      emissiveIntensity: 0.3,
+    });
+    const frosting = new THREE.Mesh(frostGeo, frostMat);
+    frosting.position.y = 0.04;
+    donutGroup.add(frosting);
+
+    // Rainbow Sprinkles
+    const sprinkleColors = [0xfacc15, 0x38bdf8, 0x22c55e, 0xffffff];
+    for (let i = 0; i < 8; i++) {
+      const angle = (i / 8) * Math.PI * 2;
+      const sp = new THREE.Mesh(
+        new THREE.BoxGeometry(0.06, 0.03, 0.03),
+        new THREE.MeshBasicMaterial({ color: sprinkleColors[i % sprinkleColors.length] })
+      );
+      sp.position.set(Math.cos(angle) * 0.32, 0.14, Math.sin(angle) * 0.32);
+      sp.rotation.y = angle;
+      donutGroup.add(sp);
+    }
+
+    donutGroup.position.set(x, y, z);
+    this.group.add(donutGroup);
+
+    this.collectibles.push({
+      mesh: donutGroup,
+      lane: laneIdx,
+      z: this.baseZ + z,
+      y,
+      type: 'DONUT',
       initialY: y,
     });
   }
@@ -817,14 +1114,20 @@ export class WorldManager {
     // Update moving trains
     this.chunks.forEach((chunk) => {
       chunk.obstacles.forEach((obs) => {
-        if (obs.type === 'TRAIN_MOVING' && obs.speed) {
-          // Oncoming train moves toward player (+Z)
+        if ((obs.type === 'TRAIN_MOVING' || obs.type === 'CARTOON_TRAIN_HOLLOW') && obs.speed) {
+          // Train moves along track
           obs.mesh.position.z += obs.speed * delta;
           obs.z = chunk.baseZ + obs.mesh.position.z;
+          const len = obs.trainLength || 14;
+          const h = obs.roofHeight || 3.6;
           obs.box.setFromCenterAndSize(
-            new THREE.Vector3(LANES[obs.lane], 1.8, obs.z),
-            new THREE.Vector3(2.6, 3.6, 14)
+            new THREE.Vector3(LANES[obs.lane], h / 2, obs.z),
+            new THREE.Vector3(2.7, h, len)
           );
+          if (obs.isHollowCartoonTrain) {
+            obs.rearEntranceZ = obs.z + len / 2;
+            obs.frontExitZ = obs.z - len / 2;
+          }
         }
       });
 

@@ -23,6 +23,7 @@ import { MainMenu } from './components/MainMenu';
 import { GameOverModal } from './components/GameOverModal';
 import { PauseModal } from './components/PauseModal';
 import { CharacterSelectModal } from './components/CharacterSelectModal';
+import { LevelSelectModal } from './components/LevelSelectModal';
 import { ShopModal } from './components/ShopModal';
 import { LuckySpinModal } from './components/LuckySpinModal';
 import { DailyRewardsModal } from './components/DailyRewardsModal';
@@ -34,6 +35,7 @@ import { SettingsModal } from './components/SettingsModal';
 type ActiveModal =
   | 'NONE'
   | 'CHARACTERS'
+  | 'LEVELS'
   | 'SHOP'
   | 'LUCKY_SPIN'
   | 'DAILY_REWARDS'
@@ -68,6 +70,8 @@ export default function App() {
     hoverboard: 0,
   });
   const [hudPoliceWarning, setHudPoliceWarning] = useState(false);
+  const [hudIsInsideTrain, setHudIsInsideTrain] = useState(false);
+  const [hudIsSkating, setHudIsSkating] = useState(true);
 
   // Game Over Details
   const [gameOverSummary, setGameOverSummary] = useState<{
@@ -169,6 +173,8 @@ export default function App() {
             setHudMultiplier(state.multiplier);
             setHudPowerUps(state.powerUps);
             setHudPoliceWarning(state.policeWarning);
+            setHudIsInsideTrain(!!state.isInsideTrain);
+            setHudIsSkating(state.isSkating !== false);
           },
           onGameOver: (summary) => {
             setGameState('GAMEOVER');
@@ -267,6 +273,10 @@ export default function App() {
       } else if (e.code === 'KeyF' || e.code === 'KeyE') {
         e.preventDefault();
         engineRef.current?.punch();
+      } else if (e.code === 'KeyG') {
+        e.preventDefault();
+        engineRef.current?.toggleSkateboard();
+        setHudIsSkating((prev) => !prev);
       } else if (e.code === 'Escape') {
         handlePause();
       }
@@ -331,6 +341,13 @@ export default function App() {
           saveData={saveData}
           onPlay={startGame}
           onOpenCharacters={() => setActiveModal('CHARACTERS')}
+          onOpenLevels={() => setActiveModal('LEVELS')}
+          onSelectCharacter={(charId) => {
+            handleUpdateSave({
+              ...saveData,
+              selectedCharacter: charId,
+            });
+          }}
           onOpenShop={() => setActiveModal('SHOP')}
           onOpenLuckySpin={() => setActiveModal('LUCKY_SPIN')}
           onOpenDailyRewards={() => setActiveModal('DAILY_REWARDS')}
@@ -354,6 +371,12 @@ export default function App() {
           policeWarning={hudPoliceWarning}
           hoverboardsStock={saveData.hoverboardsStock}
           showOnScreenControls={saveData.settings.showOnScreenControls}
+          isInsideTrain={hudIsInsideTrain}
+          isSkating={hudIsSkating}
+          onToggleSkateboard={() => {
+            engineRef.current?.toggleSkateboard();
+            setHudIsSkating((prev) => !prev);
+          }}
           onPause={handlePause}
           onDeployHoverboard={() => engineRef.current?.activateHoverboard()}
           onPunch={() => engineRef.current?.punch()}
@@ -405,6 +428,18 @@ export default function App() {
         <CharacterSelectModal
           saveData={saveData}
           onUpdateSave={handleUpdateSave}
+          onClose={() => setActiveModal('NONE')}
+        />
+      )}
+
+      {activeModal === 'LEVELS' && (
+        <LevelSelectModal
+          saveData={saveData}
+          onUpdateSave={handleUpdateSave}
+          onSelectLevelAndPlay={(_levelId) => {
+            setActiveModal('NONE');
+            startGame(currentGameMode);
+          }}
           onClose={() => setActiveModal('NONE')}
         />
       )}

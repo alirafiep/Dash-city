@@ -6,11 +6,24 @@ export type WeatherType = 'DAY' | 'SUNSET' | 'NIGHT' | 'RAIN';
 
 export type GraphicsQuality = 'LOW' | 'MEDIUM' | 'HIGH' | 'ULTRA';
 
+export type GameLevelId = 'DOWNTOWN' | 'TRAIN_YARD' | 'NEON_CYBER' | 'SUNSET_BEACH' | 'TRAIN_CHALLENGE';
+
+export interface GameLevelDef {
+  id: GameLevelId;
+  name: string;
+  theme: string;
+  description: string;
+  weather: WeatherType;
+  targetTrainEntries?: number;
+  speedModifier: number;
+  icon: string;
+}
+
 export interface CharacterDef {
   id: string;
   name: string;
   tagline: string;
-  gender: 'male' | 'female' | 'android' | 'legendary';
+  gender: 'male' | 'female' | 'android' | 'legendary' | 'cartoon';
   priceCoins?: number;
   priceDiamonds?: number;
   unlockedByDefault?: boolean;
@@ -23,6 +36,8 @@ export interface CharacterDef {
   accentColor: string;
   hairColor: string;
   skinColor: string;
+  avatarEmoji?: string;
+  funnyQuote?: string;
 }
 
 export interface OutfitDef {
@@ -82,7 +97,7 @@ export interface Mission {
   rewardDiamonds: number;
   completed: boolean;
   claimed: boolean;
-  type: 'COINS' | 'JUMPS' | 'SLIDES' | 'SCORE' | 'TRAINS' | 'DISTANCE';
+  type: 'COINS' | 'JUMPS' | 'SLIDES' | 'SCORE' | 'TRAINS' | 'DISTANCE' | 'TRAIN_ENTRY';
 }
 
 export interface DailyReward {
@@ -101,6 +116,7 @@ export interface PlayerStats {
   bestScore: number;
   highestMultiplier: number;
   trainsSurfed: number;
+  trainsEntered: number;
   policeEscapes: number;
 }
 
@@ -126,6 +142,8 @@ export interface GameSaveData {
   unlockedOutfits: string[];
   selectedHoverboard: string;
   unlockedHoverboards: string[];
+  selectedLevel: GameLevelId;
+  isSkateboardMode: boolean;
   powerUpLevels: PowerUpLevels;
   redeemedCodes: string[];
   lastLoginDate: string; // YYYY-MM-DD
