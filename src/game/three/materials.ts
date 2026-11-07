@@ -120,6 +120,168 @@ export function createTrainSideTexture(trainColor = '#ef4444'): THREE.CanvasText
   return texture;
 }
 
+// Generate Realistic Modern Metro Train Texture (Sleek aerodynamic livery, LED displays, doors)
+export function createMetroSideTexture(baseColor = '#0284c7', stripeColor = '#38bdf8'): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = 1024;
+  canvas.height = 512;
+  const ctx = canvas.getContext('2d')!;
+
+  // High-gloss metallic gradient body
+  const grad = ctx.createLinearGradient(0, 0, 0, 512);
+  grad.addColorStop(0, '#f8fafc');
+  grad.addColorStop(0.12, '#cbd5e1');
+  grad.addColorStop(0.18, baseColor);
+  grad.addColorStop(0.72, baseColor);
+  grad.addColorStop(0.78, '#0f172a');
+  grad.addColorStop(1, '#020617');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 1024, 512);
+
+  // Aerodynamic speed stripe
+  ctx.fillStyle = stripeColor;
+  ctx.fillRect(0, 120, 1024, 20);
+
+  // Dark tinted panoramic window band
+  ctx.fillStyle = '#090d16';
+  ctx.fillRect(40, 150, 944, 150);
+
+  // Individual illuminated passenger window panes with warm interior glow
+  for (let i = 0; i < 5; i++) {
+    const wx = 60 + i * 185;
+    const winGrad = ctx.createLinearGradient(wx, 160, wx, 280);
+    winGrad.addColorStop(0, 'rgba(56, 189, 248, 0.45)');
+    winGrad.addColorStop(0.5, 'rgba(254, 240, 138, 0.25)'); // Warm interior cabin light
+    winGrad.addColorStop(1, 'rgba(15, 23, 42, 0.9)');
+    ctx.fillStyle = winGrad;
+    ctx.fillRect(wx, 160, 160, 125);
+
+    // Window frame rubber seals
+    ctx.strokeStyle = '#334155';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(wx, 160, 160, 125);
+  }
+
+  // Automatic Passenger Sliding Doors with yellow warning edging
+  [220, 680].forEach((dx) => {
+    ctx.strokeStyle = '#eab308';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(dx, 140, 110, 310);
+    ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(dx + 55, 140);
+    ctx.lineTo(dx + 55, 450);
+    ctx.stroke();
+  });
+
+  // Digital LED Destination Display: "EXPRESS LINE 1"
+  ctx.fillStyle = '#050505';
+  ctx.fillRect(380, 70, 260, 36);
+  ctx.font = 'bold 20px monospace';
+  ctx.fillStyle = '#22c55e';
+  ctx.textAlign = 'center';
+  ctx.fillText('● DASH METRO EXP ●', 510, 95);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
+// Generate Realistic Corrugated Shipping Container Texture (for freight trains)
+export function createContainerTexture(baseColor: string, brandText: string): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = 1024;
+  canvas.height = 512;
+  const ctx = canvas.getContext('2d')!;
+
+  // Base industrial paint
+  ctx.fillStyle = baseColor;
+  ctx.fillRect(0, 0, 1024, 512);
+
+  // Vertical corrugation fluting (shadows & highlights)
+  const ribWidth = 24;
+  for (let x = 0; x < 1024; x += ribWidth) {
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+    ctx.fillRect(x, 0, 6, 512);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.18)';
+    ctx.fillRect(x + 6, 0, 6, 512);
+  }
+
+  // Heavy steel corner frame castings
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+  ctx.fillRect(0, 0, 24, 512);
+  ctx.fillRect(1000, 0, 24, 512);
+  ctx.fillRect(0, 0, 1024, 20);
+  ctx.fillRect(0, 492, 1024, 20);
+
+  // Stenciled Shipping Logo & ID
+  ctx.font = '900 68px Arial Black, Impact';
+  ctx.fillStyle = '#ffffff';
+  ctx.textAlign = 'center';
+  ctx.shadowColor = 'rgba(0,0,0,0.8)';
+  ctx.shadowBlur = 6;
+  ctx.fillText(brandText, 512, 270);
+
+  // ISO Specs and Hazard Diamond
+  ctx.font = 'bold 22px monospace';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+  ctx.fillText('MAX GROSS 32,500 KG  •  TARE 3,800 KG', 512, 330);
+  ctx.fillText('DASH FREIGHT LOGISTICS  [ISO-668]', 512, 360);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
+// Generate Fluted Stainless Steel Commuter Train Texture
+export function createCommuterSideTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = 1024;
+  canvas.height = 512;
+  const ctx = canvas.getContext('2d')!;
+
+  // Base stainless steel sheen
+  const grad = ctx.createLinearGradient(0, 0, 0, 512);
+  grad.addColorStop(0, '#e2e8f0');
+  grad.addColorStop(0.5, '#cbd5e1');
+  grad.addColorStop(1, '#94a3b8');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 1024, 512);
+
+  // Horizontal fluted stainless ribs
+  for (let y = 300; y < 490; y += 12) {
+    ctx.fillStyle = 'rgba(71, 85, 105, 0.5)';
+    ctx.fillRect(0, y, 1024, 4);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+    ctx.fillRect(0, y + 4, 1024, 4);
+  }
+
+  // Windows with commuter seating silhouettes
+  ctx.fillStyle = '#0f172a';
+  for (let i = 0; i < 4; i++) {
+    const wx = 100 + i * 220;
+    ctx.fillRect(wx, 130, 170, 130);
+
+    const winGrad = ctx.createLinearGradient(wx, 130, wx, 260);
+    winGrad.addColorStop(0, 'rgba(56, 189, 248, 0.35)');
+    winGrad.addColorStop(0.6, 'rgba(253, 224, 71, 0.3)');
+    winGrad.addColorStop(1, 'rgba(15, 23, 42, 0.95)');
+    ctx.fillStyle = winGrad;
+    ctx.fillRect(wx + 6, 136, 158, 118);
+  }
+
+  // Bold Commuter Rail Red/Blue Stripe
+  ctx.fillStyle = '#dc2626';
+  ctx.fillRect(0, 95, 1024, 14);
+  ctx.fillStyle = '#2563eb';
+  ctx.fillRect(0, 109, 1024, 14);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
 // Generate Coin Face Texture
 export function createCoinTexture(): THREE.CanvasTexture {
   const canvas = document.createElement('canvas');
@@ -194,6 +356,24 @@ export class MaterialLibrary {
   public trainRedMaterial: THREE.MeshStandardMaterial;
   public trainBlueMaterial: THREE.MeshStandardMaterial;
   public trainGreenMaterial: THREE.MeshStandardMaterial;
+
+  // New Realistic Train Materials
+  public metroCyanMaterial: THREE.MeshStandardMaterial;
+  public metroRedMaterial: THREE.MeshStandardMaterial;
+  public metroSilverMaterial: THREE.MeshStandardMaterial;
+  public cargoBlueMaterial: THREE.MeshStandardMaterial;
+  public cargoOrangeMaterial: THREE.MeshStandardMaterial;
+  public cargoGreenMaterial: THREE.MeshStandardMaterial;
+  public cargoRedMaterial: THREE.MeshStandardMaterial;
+  public commuterStainlessMaterial: THREE.MeshStandardMaterial;
+  public headlightLensMaterial: THREE.MeshBasicMaterial;
+  public headlightBeamMaterial: THREE.MeshBasicMaterial;
+  public tailLightMaterial: THREE.MeshBasicMaterial;
+  public bogieSteelMaterial: THREE.MeshStandardMaterial;
+  public wheelRimMaterial: THREE.MeshStandardMaterial;
+  public roofTreadMaterial: THREE.MeshStandardMaterial;
+  public pantographMaterial: THREE.MeshStandardMaterial;
+
   public barrierConcreteMaterial: THREE.MeshStandardMaterial;
   public buildingGlassMaterial: THREE.MeshPhysicalMaterial;
   public buildingWallMaterial: THREE.MeshStandardMaterial;
@@ -206,6 +386,15 @@ export class MaterialLibrary {
     const redTrainTex = createTrainSideTexture('#dc2626');
     const blueTrainTex = createTrainSideTexture('#2563eb');
     const greenTrainTex = createTrainSideTexture('#059669');
+
+    // High detail train textures
+    const metroCyanTex = createMetroSideTexture('#0284c7', '#38bdf8');
+    const metroRedTex = createMetroSideTexture('#dc2626', '#f87171');
+    const cargoBlueTex = createContainerTexture('#1e40af', 'DASH FREIGHT');
+    const cargoOrangeTex = createContainerTexture('#ea580c', 'CARGO NEXUS');
+    const cargoGreenTex = createContainerTexture('#065f46', 'METRO PACIFIC');
+    const cargoRedTex = createContainerTexture('#991b1b', 'GLOBAL LOGISTICS');
+    const commuterTex = createCommuterSideTexture();
 
     this.asphaltMaterial = new THREE.MeshStandardMaterial({
       map: asphaltTex,
@@ -264,6 +453,97 @@ export class MaterialLibrary {
       map: greenTrainTex,
       roughness: 0.35,
       metalness: 0.45,
+    });
+
+    // Realistic Modern Metro Materials
+    this.metroCyanMaterial = new THREE.MeshStandardMaterial({
+      map: metroCyanTex,
+      roughness: 0.25,
+      metalness: 0.65,
+    });
+
+    this.metroRedMaterial = new THREE.MeshStandardMaterial({
+      map: metroRedTex,
+      roughness: 0.25,
+      metalness: 0.65,
+    });
+
+    this.metroSilverMaterial = new THREE.MeshStandardMaterial({
+      color: 0xe2e8f0,
+      roughness: 0.3,
+      metalness: 0.8,
+    });
+
+    // Cargo Container Materials
+    this.cargoBlueMaterial = new THREE.MeshStandardMaterial({
+      map: cargoBlueTex,
+      roughness: 0.55,
+      metalness: 0.3,
+    });
+
+    this.cargoOrangeMaterial = new THREE.MeshStandardMaterial({
+      map: cargoOrangeTex,
+      roughness: 0.55,
+      metalness: 0.3,
+    });
+
+    this.cargoGreenMaterial = new THREE.MeshStandardMaterial({
+      map: cargoGreenTex,
+      roughness: 0.55,
+      metalness: 0.3,
+    });
+
+    this.cargoRedMaterial = new THREE.MeshStandardMaterial({
+      map: cargoRedTex,
+      roughness: 0.55,
+      metalness: 0.3,
+    });
+
+    // Commuter Stainless Steel Material
+    this.commuterStainlessMaterial = new THREE.MeshStandardMaterial({
+      map: commuterTex,
+      roughness: 0.3,
+      metalness: 0.75,
+    });
+
+    // Headlight Lens and Glow Cones
+    this.headlightLensMaterial = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+    });
+
+    this.headlightBeamMaterial = new THREE.MeshBasicMaterial({
+      color: 0xe0f2fe,
+      transparent: true,
+      opacity: 0.35,
+    });
+
+    this.tailLightMaterial = new THREE.MeshBasicMaterial({
+      color: 0xef4444,
+    });
+
+    // Mechanical Train Bogie & Wheel Materials
+    this.bogieSteelMaterial = new THREE.MeshStandardMaterial({
+      color: 0x1e293b,
+      roughness: 0.7,
+      metalness: 0.8,
+    });
+
+    this.wheelRimMaterial = new THREE.MeshStandardMaterial({
+      color: 0x94a3b8,
+      roughness: 0.2,
+      metalness: 0.95,
+    });
+
+    this.roofTreadMaterial = new THREE.MeshStandardMaterial({
+      color: 0x334155,
+      roughness: 0.8,
+      metalness: 0.4,
+    });
+
+    this.pantographMaterial = new THREE.MeshStandardMaterial({
+      color: 0xd97706, // Copper-accented pantograph
+      roughness: 0.4,
+      metalness: 0.85,
     });
 
     this.barrierConcreteMaterial = new THREE.MeshStandardMaterial({

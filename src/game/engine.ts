@@ -78,8 +78,14 @@ export class DashEngine {
   private baseSpeed = 22; // m/s
   private currentSpeed = 22;
   private maxSpeed = 38;
-  private gravity = -42;
-  private jumpForce = 15;
+  private gravity = -44;
+  private jumpForce = 16.5;
+
+  // Jump Input Buffering & Coyote Time & Landing Squash
+  private jumpBufferTimer = 0; // 200ms input buffer
+  private coyoteTimer = 0; // 120ms coyote time
+  private landingSquashTimer = 0; // 120ms landing squash compression
+  private airWatchdogTimer = 0; // Prevents getting stuck in the air
 
   // Climbing & Train Roof State
   private isClimbing = false;
@@ -282,14 +288,32 @@ export class DashEngine {
     if (!this.isRunning || this.isPaused || this.isClimbing) return;
     if (this.isInsideTrain) return; // Safely stay inside train aisle
     if (this.targetLane > 0) {
-      this.targetLane--;
-      audio.playLaneSwitch();
+      const prevLane = this.targetLane;
+      const nextLane = this.targetLane - 1;
 
-      // Check if new lane has an adjacent train to climb or land on
-      const trainInLane = this.getTrainInLane(this.targetLane);
-      if (trainInLane && this.currentGroundY < (trainInLane.roofHeight || 3.6)) {
-        this.startClimb(trainInLane);
+      // Check if target lane has a train at player's current Z
+      const trainInLane = this.getTrainInLane(nextLane);
+      if (trainInLane) {
+        const roofH = trainInLane.roofHeight || 3.6;
+        if (this.currentY >= roofH - 0.55) {
+          // Surfing on roof: smooth transfer to adjacent train roof!
+          this.targetLane = nextLane;
+          this.currentGroundY = roofH;
+          if (this.isGrounded) this.currentY = roofH;
+          audio.playLaneSwitch();
+          return;
+        } else if (this.currentY < roofH - 0.75) {
+          // Player is at ground level trying to steer into a solid train flank!
+          // Prevent passing through solid train mesh: deflect back with metallic scrape sound
+          audio.playTrainScrape();
+          this.isStumbling = true;
+          this.stumbleTimer = 0.5;
+          return;
+        }
       }
+
+      this.targetLane = nextLane;
+      audio.playLaneSwitch();
     }
   }
 
@@ -297,15 +321,50 @@ export class DashEngine {
     if (!this.isRunning || this.isPaused || this.isClimbing) return;
     if (this.isInsideTrain) return; // Safely stay inside train aisle
     if (this.targetLane < 2) {
-      this.targetLane++;
-      audio.playLaneSwitch();
+      const prevLane = this.targetLane;
+      const nextLane = this.targetLane + 1;
 
-      // Check if new lane has an adjacent train to climb or land on
-      const trainInLane = this.getTrainInLane(this.targetLane);
-      if (trainInLane && this.currentGroundY < (trainInLane.roofHeight || 3.6)) {
-        this.startClimb(trainInLane);
+      // Check if target lane has a train at player's current Z
+      const trainInLane = this.getTrainInLane(nextLane);
+      if (trainInLane) {
+        const roofH = trainInLane.roofHeight || 3.6;
+        if (this.currentY >= roofH - 0.55) {
+          // Surfing on roof: smooth transfer to adjacent train roof!
+          this.targetLane = nextLane;
+          this.currentGroundY = roofH;
+          if (this.isGrounded) this.currentY = roofH;
+          audio.playLaneSwitch();
+          return;
+        } else if (this.currentY < roofH - 0.75) {
+          // Player is at ground level trying to steer into a solid train flank!
+          // Prevent passing through solid train mesh: deflect back with metallic scrape sound
+          audio.playTrainScrape();
+          this.isStumbling = true;
+          this.stumbleTimer = 0.5;
+          return;
+        }
       }
+
+      this.targetLane = nextLane;
+      audio.playLaneSwitch();
     }
+  }
+
+  private executeJump() {
+    const superBoost = this.powerUps.superJump > 0 ? 1.6 : 1.0;
+    this.velocityY = this.jumpForce * superBoost;
+    this.isGrounded = false;
+    this.isSliding = false;
+    this.jumpBufferTimer = 0;
+    this.coyoteTimer = 0;
+    this.airWatchdogTimer = 0;
+
+    if (this.isSkating) {
+      audio.playOllie();
+    } else {
+      audio.playJump();
+    }
+    this.callbacks.onMissionProgress?.('JUMPS', 1);
   }
 
   public jump() {
@@ -321,24 +380,19 @@ export class DashEngine {
       return;
     }
 
-    // If alongside a train, jumping grabs the side ladder and vaults up onto the roof!
+    // If directly facing a train ladder in the same lane, vault up onto the roof!
     const nearbyTrain = this.getNearbyTrainForClimb();
     if (nearbyTrain && this.currentGroundY < (nearbyTrain.roofHeight || 3.6)) {
       this.startClimb(nearbyTrain);
       return;
     }
 
-    if (this.isGrounded || this.currentY <= this.currentGroundY + 0.15) {
-      const superBoost = this.powerUps.superJump > 0 ? 1.6 : 1.0;
-      this.velocityY = this.jumpForce * superBoost;
-      this.isGrounded = false;
-      this.isSliding = false;
-      if (this.isSkating) {
-        audio.playOllie();
-      } else {
-        audio.playJump();
-      }
-      this.callbacks.onMissionProgress?.('JUMPS', 1);
+    // Zero-lag immediate jump: If grounded or within Coyote Time, fire instantly!
+    if (this.isGrounded || this.coyoteTimer > 0 || this.currentY <= this.currentGroundY + 0.15) {
+      this.executeJump();
+    } else {
+      // Input buffering: preserve jump press up to 200ms before landing
+      this.jumpBufferTimer = 0.20;
     }
   }
 
@@ -375,6 +429,8 @@ export class DashEngine {
     this.isGrounded = false;
     this.isSliding = false;
     this.isStumbling = false;
+    this.jumpBufferTimer = 0;
+    this.coyoteTimer = 0;
     audio.playJump();
     this.callbacks.onMissionProgress?.('TRAINS', 1);
   }
@@ -382,10 +438,15 @@ export class DashEngine {
   private getNearbyTrainForClimb(): ObstacleInstance | null {
     for (const chunk of this.worldManager.chunks) {
       for (const obs of chunk.obstacles) {
-        if ((obs.type === 'TRAIN_STATIONARY' || obs.type === 'TRAIN_MOVING') && obs.canClimbRoof) {
+        if (
+          (obs.type === 'TRAIN_STATIONARY' || obs.type === 'TRAIN_MOVING' || obs.type === 'CARTOON_TRAIN_HOLLOW') &&
+          obs.canClimbRoof
+        ) {
+          const trainLen = obs.trainLength || 16;
           const distZ = Math.abs(obs.z - this.currentZ);
           const distX = Math.abs(LANES[obs.lane] - this.currentX);
-          if (distZ < 7.8 && distX <= 3.8) {
+          // Only climb if player is in the same track lane right at the train's ladder/rear
+          if (distZ < trainLen / 2 + 1.2 && distX < 1.35) {
             return obs;
           }
         }
@@ -397,8 +458,13 @@ export class DashEngine {
   private getTrainInLane(lane: number): ObstacleInstance | null {
     for (const chunk of this.worldManager.chunks) {
       for (const obs of chunk.obstacles) {
-        if (obs.lane === lane && (obs.type === 'TRAIN_STATIONARY' || obs.type === 'TRAIN_MOVING') && obs.canClimbRoof) {
-          if (Math.abs(obs.z - this.currentZ) < 7.5) {
+        if (
+          obs.lane === lane &&
+          (obs.type === 'TRAIN_STATIONARY' || obs.type === 'TRAIN_MOVING' || obs.type === 'CARTOON_TRAIN_HOLLOW') &&
+          obs.canClimbRoof
+        ) {
+          const trainLen = obs.trainLength || 16;
+          if (Math.abs(obs.z - this.currentZ) < trainLen / 2 + 0.6) {
             return obs;
           }
         }
@@ -646,14 +712,55 @@ export class DashEngine {
         this.currentY += this.velocityY * delta;
 
         if (this.currentY <= this.currentGroundY) {
+          const wasAirborne = !this.isGrounded;
           this.currentY = this.currentGroundY;
           this.velocityY = 0;
           this.isGrounded = true;
-          if (this.isSkating) {
-            audio.playSkateLand();
+          this.airWatchdogTimer = 0;
+
+          if (wasAirborne) {
+            this.landingSquashTimer = 0.12;
+            if (this.isSkating) {
+              audio.playSkateLand();
+            }
           }
         }
       }
+    }
+
+    // Input Buffer & Coyote Time & Air Watchdog
+    if (this.isGrounded) {
+      this.coyoteTimer = 0.12;
+      this.airWatchdogTimer = 0;
+
+      // Immediately consume buffered jump input on landing!
+      if (this.jumpBufferTimer > 0) {
+        this.executeJump();
+      }
+    } else {
+      this.coyoteTimer = Math.max(0, this.coyoteTimer - delta);
+
+      // Watchdog: ensures character never gets stuck in the air
+      if (this.powerUps.jetpack <= 0) {
+        this.airWatchdogTimer += delta;
+        if (this.airWatchdogTimer > 2.5 && this.currentY > 0) {
+          this.velocityY = -24;
+          if (this.airWatchdogTimer > 3.5) {
+            this.currentY = this.currentGroundY;
+            this.isGrounded = true;
+            this.velocityY = 0;
+            this.airWatchdogTimer = 0;
+          }
+        }
+      }
+    }
+
+    if (this.jumpBufferTimer > 0) {
+      this.jumpBufferTimer -= delta;
+    }
+
+    if (this.landingSquashTimer > 0) {
+      this.landingSquashTimer -= delta;
     }
 
     // Slide timer
@@ -731,7 +838,15 @@ export class DashEngine {
       animState = this.isSkating ? 'SKATE' : 'RUN';
     }
 
-    this.playerRig.animate(time, animState, effectiveSpeed / this.baseSpeed, laneOffsetRatio);
+    const squashFactor = this.landingSquashTimer > 0 ? (this.landingSquashTimer / 0.12) : 0;
+    this.playerRig.animate(
+      time,
+      animState,
+      effectiveSpeed / this.baseSpeed,
+      laneOffsetRatio,
+      this.velocityY,
+      squashFactor
+    );
   }
 
   // --- Police Chase AI ---
@@ -930,19 +1045,14 @@ export class DashEngine {
             continue;
           }
 
-          // 2. Smoothly climb up from the side or rear onto the roof
-          const isBesideTrainX = Math.abs(LANES[obs.lane] - this.currentX) <= 2.2;
-          const isHittingTrainBox = _playerBox.intersectsBox(obs.box);
+          // 2. Smoothly climb up from the side ladder or rear onto the roof
+          const isSameOrAdjacentLane = Math.abs(LANES[obs.lane] - this.currentX) <= 1.4;
+          const isNearRearLadder = (this.currentZ >= obs.z + trainLen / 2 - 1.2 && this.currentZ <= obs.z + trainLen / 2 + 1.2);
+          const isVaultingOntoRoof = (!this.isGrounded && this.currentY >= obs.roofHeight - 1.4);
 
-          if (isOverTrainZ && (isBesideTrainX || isHittingTrainBox)) {
-            const isSide = Math.abs(LANES[obs.lane] - this.currentX) > 0.45;
-            const isAirborneOrJumping = !this.isGrounded || this.velocityY > -8 || this.currentY > 0.4;
-            const isRear = (this.currentZ > obs.z + 5.0);
-
-            if (isSide || isAirborneOrJumping || isRear) {
-              this.startClimb(obs);
-              return;
-            }
+          if (isOverTrainZ && isSameOrAdjacentLane && (isVaultingOntoRoof || isNearRearLadder)) {
+            this.startClimb(obs);
+            return;
           }
         }
 
@@ -1031,7 +1141,10 @@ export class DashEngine {
 
           // If head-on collision with moving train or large obstacle
           if (obs.type === 'TRAIN_MOVING' || obs.type === 'TRAIN_STATIONARY') {
-            this.triggerGameOver('Crashed into a Metro Train!');
+            const trainName = obs.trainSubtype === 'CARGO'
+              ? 'Freight Cargo Train'
+              : (obs.trainSubtype === 'COMMUTER' ? 'Commuter Train' : 'Metro Bullet Train');
+            this.triggerGameOver(`Crashed into a ${trainName}! Vault onto the roof or change lanes!`);
             return;
           }
 

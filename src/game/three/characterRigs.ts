@@ -576,9 +576,37 @@ export class PlayerRig {
     time: number,
     state: 'RUN' | 'JUMP' | 'SLIDE' | 'HOVER' | 'STUMBLE' | 'BUSTED' | 'CLIMB' | 'PUNCH' | 'JETPACK' | 'SKATE' | 'SKATE_OLLIE' | 'SKATE_SLIDE' | 'INSIDE_TRAIN',
     speedRatio: number,
-    laneOffsetRatio = 0
+    laneOffsetRatio = 0,
+    verticalVelocity = 0,
+    landingSquash = 0
   ) {
     const runFreq = (speedRatio * 14);
+
+    // Dynamic Squash & Stretch for launch, hang-time, and landing compression
+    if (landingSquash > 0.01) {
+      const sqY = THREE.MathUtils.lerp(1.0, 0.82, landingSquash);
+      const sqXZ = THREE.MathUtils.lerp(1.0, 1.12, landingSquash);
+      this.group.scale.set(sqXZ, sqY, sqXZ);
+    } else if (state === 'JUMP' || state === 'SKATE_OLLIE') {
+      if (verticalVelocity > 2) {
+        // Upward launch stretch
+        const factor = Math.min(1.0, (verticalVelocity - 2) / 14);
+        const stY = THREE.MathUtils.lerp(1.0, 1.12, factor);
+        const stXZ = THREE.MathUtils.lerp(1.0, 0.94, factor);
+        this.group.scale.set(stXZ, stY, stXZ);
+      } else if (verticalVelocity < -2) {
+        // Downward fall stretch
+        const factor = Math.min(1.0, (-verticalVelocity - 2) / 18);
+        const stY = THREE.MathUtils.lerp(1.0, 1.06, factor);
+        const stXZ = THREE.MathUtils.lerp(1.0, 0.97, factor);
+        this.group.scale.set(stXZ, stY, stXZ);
+      } else {
+        // Apex hang
+        this.group.scale.set(1.0, 1.0, 1.0);
+      }
+    } else {
+      this.group.scale.set(1.0, 1.0, 1.0);
+    }
 
     // Punch aura toggle
     this.punchAuraMesh.visible = (state === 'PUNCH');
@@ -712,17 +740,25 @@ export class PlayerRig {
       }
 
       if (state === 'SKATE_OLLIE' || state === 'JUMP') {
-        // Skateboard Ollie Leap: Board pops upward, knees tuck up, then level out
-        this.torso.rotation.x = -0.15;
+        // Skateboard Ollie Leap: Board pops upward, knees tuck up at apex, then levels for landing
+        const isAscending = verticalVelocity > 2;
+        const isDescending = verticalVelocity < -2;
+
+        this.torso.rotation.x = isAscending ? -0.22 : (isDescending ? 0.08 : -0.1);
         this.torso.position.y = 1.15;
         this.torso.rotation.y = 0.55;
 
-        // Ollie pop angle
-        this.skateboardGroup.rotation.x = -0.35;
-        this.skateboardGroup.rotation.z = -laneOffsetRatio * 0.3;
+        // Dynamic Ollie board tilt based on vertical trajectory
+        const boardPitch = isAscending
+          ? THREE.MathUtils.lerp(-0.25, -0.48, Math.min(1.0, verticalVelocity / 16))
+          : (isDescending ? THREE.MathUtils.lerp(0.05, 0.22, Math.min(1.0, -verticalVelocity / 18)) : -0.05);
+        this.skateboardGroup.rotation.x = boardPitch;
+        this.skateboardGroup.rotation.z = -laneOffsetRatio * 0.35;
 
-        this.leftLegPivot.rotation.x = -0.7; // Front foot slides up board
-        this.rightLegPivot.rotation.x = -0.6; // Back foot pulls tail up
+        // Dynamic knee tuck & foot placement
+        const tuckAmount = isAscending ? 0.8 : (isDescending ? 0.45 : 0.7);
+        this.leftLegPivot.rotation.x = -tuckAmount; // Front foot guides board
+        this.rightLegPivot.rotation.x = -tuckAmount * 0.85; // Back foot levels tail
         this.leftArmPivot.rotation.z = -0.7;
         this.rightArmPivot.rotation.z = 0.7;
         return;
@@ -790,15 +826,22 @@ export class PlayerRig {
     }
 
     if (state === 'JUMP') {
-      // Tuck legs in air, arms out
-      this.torso.rotation.x = -0.2;
+      // Dynamic runner jump: launch lean, apex tuck, impact preparation
+      const isAscending = verticalVelocity > 2;
+      const isDescending = verticalVelocity < -2;
+
+      this.torso.rotation.x = isAscending ? -0.25 : (isDescending ? 0.12 : -0.1);
       this.torso.position.y = 1.1;
-      this.leftLegPivot.rotation.x = -0.85;
-      this.rightLegPivot.rotation.x = -0.65;
-      this.leftArmPivot.rotation.x = -0.9;
-      this.leftArmPivot.rotation.z = -0.3;
-      this.rightArmPivot.rotation.x = -0.9;
-      this.rightArmPivot.rotation.z = 0.3;
+
+      const kneeTuck = isAscending ? -0.9 : (isDescending ? -0.35 : -0.75);
+      this.leftLegPivot.rotation.x = kneeTuck;
+      this.rightLegPivot.rotation.x = kneeTuck * 0.8;
+
+      const armExtension = isAscending ? -1.1 : (isDescending ? -0.4 : -0.85);
+      this.leftArmPivot.rotation.x = armExtension;
+      this.leftArmPivot.rotation.z = -0.35;
+      this.rightArmPivot.rotation.x = armExtension;
+      this.rightArmPivot.rotation.z = 0.35;
       return;
     }
 

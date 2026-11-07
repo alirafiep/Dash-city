@@ -22,6 +22,7 @@ export interface ObstacleInstance {
   rearEntranceZ?: number;
   frontExitZ?: number;
   entered?: boolean;
+  trainSubtype?: 'METRO' | 'CARGO' | 'COMMUTER' | 'CARTOON';
 }
 
 export interface CollectibleInstance {
@@ -312,11 +313,12 @@ export class WorldChunk {
       const roll = Math.random();
 
       if (allowTrain && (roll < 0.38 + difficulty * 0.12)) {
-        // Spawn Train (prefer hollow cartoon train with open rear entrance!)
-        const isHollow = Math.random() < 0.75;
-        const isMoving = Math.random() < (0.35 + difficulty * 0.15);
+        // Diverse realistic trains: Hollow Cartoon Express, Metro Bullet, Freight Cargo, Commuter
+        const isMoving = Math.random() < (0.35 + difficulty * 0.18);
+        const trainTypeRoll = Math.random();
 
-        if (isHollow) {
+        if (trainTypeRoll < 0.35) {
+          // 1. CARTOON HOLLOW EXPRESS (Ride inside on skateboard with open rear entrance!)
           const train = this.createCartoonHollowTrainMesh(isMoving);
           train.position.set(laneX, 0, localZ);
           this.group.add(train);
@@ -341,6 +343,7 @@ export class WorldChunk {
             trainLength: trainLen,
             rearEntranceZ: this.baseZ + localZ + trainLen / 2,
             frontExitZ: this.baseZ + localZ - trainLen / 2,
+            trainSubtype: 'CARTOON',
           });
 
           // Interior collectibles: 2 Strawberry Frosted Donuts & 3 Golden Coins
@@ -350,12 +353,105 @@ export class WorldChunk {
           [-2, 0, 2].forEach((iz) => {
             this.addCoin(laneIdx, laneX, localZ + iz, 1.25);
           });
-        } else {
-          const train = this.createTrainMesh(isMoving);
+        } else if (trainTypeRoll < 0.65) {
+          // 2. MODERN METRO BULLET TRAIN (Cyan, Crimson, or Silver high-speed EMU)
+          const livery = Math.random() < 0.4 ? 'cyan' : (Math.random() < 0.5 ? 'red' : 'silver');
+          const train = this.createModernMetroTrainMesh(isMoving, livery);
           train.position.set(laneX, 0, localZ);
           this.group.add(train);
 
-          const trainLen = 14;
+          const trainLen = 16;
+          const box = new THREE.Box3();
+          box.setFromCenterAndSize(
+            new THREE.Vector3(laneX, 1.8, this.baseZ + localZ),
+            new THREE.Vector3(2.65, 3.6, trainLen)
+          );
+
+          this.obstacles.push({
+            mesh: train,
+            lane: laneIdx,
+            z: this.baseZ + localZ,
+            type: isMoving ? 'TRAIN_MOVING' : 'TRAIN_STATIONARY',
+            box,
+            canClimbRoof: true,
+            roofHeight: 3.6,
+            speed: isMoving ? (8.5 + difficulty * 4) : 0,
+            trainLength: trainLen,
+            trainSubtype: 'METRO',
+          });
+
+          // Rear Ramp for stationary trains
+          if (!isMoving && Math.random() < 0.5) {
+            const ramp = this.createRampMesh();
+            ramp.position.set(laneX, 0, localZ + trainLen / 2 + 3);
+            this.group.add(ramp);
+
+            const rampBox = new THREE.Box3().setFromCenterAndSize(
+              new THREE.Vector3(laneX, 1.5, this.baseZ + localZ + trainLen / 2 + 3),
+              new THREE.Vector3(2.4, 3, 6)
+            );
+            this.obstacles.push({
+              mesh: ramp,
+              lane: laneIdx,
+              z: this.baseZ + localZ + trainLen / 2 + 3,
+              type: 'RAMP',
+              box: rampBox,
+              canClimbRoof: true,
+              roofHeight: 3.6,
+            });
+          }
+        } else if (trainTypeRoll < 0.85) {
+          // 3. HEAVY FREIGHT CARGO TRAIN (Stacked ISO containers, cowcatcher, dual horns)
+          const train = this.createFreightCargoTrainMesh(isMoving);
+          train.position.set(laneX, 0, localZ);
+          this.group.add(train);
+
+          const trainLen = 18;
+          const box = new THREE.Box3();
+          box.setFromCenterAndSize(
+            new THREE.Vector3(laneX, 1.9, this.baseZ + localZ),
+            new THREE.Vector3(2.7, 3.8, trainLen)
+          );
+
+          this.obstacles.push({
+            mesh: train,
+            lane: laneIdx,
+            z: this.baseZ + localZ,
+            type: isMoving ? 'TRAIN_MOVING' : 'TRAIN_STATIONARY',
+            box,
+            canClimbRoof: true,
+            roofHeight: 3.8,
+            speed: isMoving ? (7.5 + difficulty * 3.5) : 0,
+            trainLength: trainLen,
+            trainSubtype: 'CARGO',
+          });
+
+          if (!isMoving && Math.random() < 0.5) {
+            const ramp = this.createRampMesh();
+            ramp.position.set(laneX, 0, localZ + trainLen / 2 + 3);
+            this.group.add(ramp);
+
+            const rampBox = new THREE.Box3().setFromCenterAndSize(
+              new THREE.Vector3(laneX, 1.5, this.baseZ + localZ + trainLen / 2 + 3),
+              new THREE.Vector3(2.4, 3, 6)
+            );
+            this.obstacles.push({
+              mesh: ramp,
+              lane: laneIdx,
+              z: this.baseZ + localZ + trainLen / 2 + 3,
+              type: 'RAMP',
+              box: rampBox,
+              canClimbRoof: true,
+              roofHeight: 3.8,
+            });
+          }
+        } else {
+          // 4. STAINLESS STEEL COMMUTER TRAIN (Fluted panels, illuminated passenger windows)
+          const train = this.createCommuterTrainMesh(isMoving);
+          train.position.set(laneX, 0, localZ);
+          this.group.add(train);
+
+          const trainLen = 15;
           const box = new THREE.Box3();
           box.setFromCenterAndSize(
             new THREE.Vector3(laneX, 1.8, this.baseZ + localZ),
@@ -370,11 +466,12 @@ export class WorldChunk {
             box,
             canClimbRoof: true,
             roofHeight: 3.6,
-            speed: isMoving ? (8 + difficulty * 4) : 0,
+            speed: isMoving ? (8 + difficulty * 3.5) : 0,
+            trainLength: trainLen,
+            trainSubtype: 'COMMUTER',
           });
 
-          // If stationary train, add a climbable ramp at the rear so player can run up!
-          if (!isMoving && Math.random() < 0.6) {
+          if (!isMoving && Math.random() < 0.5) {
             const ramp = this.createRampMesh();
             ramp.position.set(laneX, 0, localZ + trainLen / 2 + 3);
             this.group.add(ramp);
@@ -450,47 +547,186 @@ export class WorldChunk {
     }
   }
 
-  private createTrainMesh(isMoving: boolean): THREE.Group {
-    const train = new THREE.Group();
-    const length = 14;
-    const height = 3.6;
-    const width = 2.6;
+  private createWheelBogie(is3Axle = false): THREE.Group {
+    const bogie = new THREE.Group();
+    // Center bolster frame
+    const bolsterGeo = new THREE.BoxGeometry(2.1, 0.22, is3Axle ? 3.6 : 2.4);
+    const bolster = new THREE.Mesh(bolsterGeo, this.materials.bogieSteelMaterial);
+    bolster.position.y = 0.32;
+    bolster.castShadow = true;
+    bogie.add(bolster);
 
-    // Body
-    const bodyMat = isMoving ? this.materials.trainRedMaterial : this.materials.trainBlueMaterial;
-    const bodyGeo = new THREE.BoxGeometry(width, height - 0.6, length);
+    // Axles & flanged steel wheels
+    const axleZPositions = is3Axle ? [-1.2, 0, 1.2] : [-0.75, 0.75];
+    const wheelGeo = new THREE.CylinderGeometry(0.32, 0.32, 0.12, 16);
+    wheelGeo.rotateZ(Math.PI / 2);
+    const axleGeo = new THREE.CylinderGeometry(0.04, 0.04, 1.7, 8);
+    axleGeo.rotateZ(Math.PI / 2);
+
+    axleZPositions.forEach((az) => {
+      // Steel Axle bar
+      const axle = new THREE.Mesh(axleGeo, this.materials.bogieSteelMaterial);
+      axle.position.set(0, 0.32, az);
+      bogie.add(axle);
+
+      // Flanged wheels at rails (x = -0.7 and +0.7)
+      [-0.7, 0.7].forEach((wx) => {
+        const wheel = new THREE.Mesh(wheelGeo, this.materials.wheelRimMaterial);
+        wheel.position.set(wx, 0.32, az);
+        wheel.castShadow = true;
+        bogie.add(wheel);
+
+        // Flange ring
+        const flangeGeo = new THREE.CylinderGeometry(0.36, 0.36, 0.03, 16);
+        flangeGeo.rotateZ(Math.PI / 2);
+        const flange = new THREE.Mesh(flangeGeo, this.materials.bogieSteelMaterial);
+        flange.position.set(wx + (wx > 0 ? 0.06 : -0.06), 0.32, az);
+        bogie.add(flange);
+      });
+    });
+
+    // Side equalizer beams & coil dampers
+    [-1.02, 1.02].forEach((sx) => {
+      const beam = new THREE.Mesh(
+        new THREE.BoxGeometry(0.08, 0.28, is3Axle ? 3.8 : 2.6),
+        this.materials.bogieSteelMaterial
+      );
+      beam.position.set(sx, 0.32, 0);
+      bogie.add(beam);
+    });
+
+    return bogie;
+  }
+
+  private createModernMetroTrainMesh(
+    isMoving: boolean,
+    livery: 'cyan' | 'red' | 'silver' = 'cyan'
+  ): THREE.Group {
+    const train = new THREE.Group();
+    const length = 16;
+    const height = 3.6;
+    const width = 2.65;
+
+    // Body Material Selection
+    let bodyMat = this.materials.metroCyanMaterial;
+    if (livery === 'red') bodyMat = this.materials.metroRedMaterial;
+    else if (livery === 'silver') bodyMat = this.materials.metroSilverMaterial;
+
+    // 1. Sleek Aerodynamic Body Shell
+    const bodyGeo = new THREE.BoxGeometry(width, height - 0.7, length - 2.0);
     const body = new THREE.Mesh(bodyGeo, bodyMat);
-    body.position.y = (height - 0.6) / 2 + 0.6;
+    body.position.y = (height - 0.7) / 2 + 0.6;
     body.castShadow = true;
     body.receiveShadow = true;
     train.add(body);
 
-    // Roof walkway (with guardrails where player can surf!)
+    // 2. Streamlined Bullet Nose Cabs (Front & Rear aerodynamic wedge cowls)
+    [-1, 1].forEach((dir) => {
+      const cabZ = dir * (length / 2 - 1.0);
+      const noseGeo = new THREE.CylinderGeometry(0.8, 1.32, 2.0, 8);
+      noseGeo.rotateX(Math.PI / 2);
+      const nose = new THREE.Mesh(noseGeo, bodyMat);
+      nose.position.set(0, (height - 0.7) / 2 + 0.6, cabZ + dir * 0.9);
+      nose.scale.set(1.0, 1.0, 1.0);
+      train.add(nose);
+
+      // Dark Panoramic Windshield Glass
+      const glassGeo = new THREE.BoxGeometry(width - 0.5, 0.9, 0.6);
+      const glass = new THREE.Mesh(glassGeo, this.materials.buildingGlassMaterial);
+      glass.position.set(0, height - 0.9, cabZ + dir * 1.55);
+      train.add(glass);
+
+      // Dual High-Intensity Xenon Headlights
+      [-0.75, 0.75].forEach((hx) => {
+        const lens = new THREE.Mesh(
+          new THREE.SphereGeometry(0.18, 12, 12),
+          this.materials.headlightLensMaterial
+        );
+        lens.position.set(hx, 1.1, cabZ + dir * 1.95);
+        train.add(lens);
+
+        // Projector Forward Light Beam (Facing player direction)
+        if (dir > 0 || isMoving) {
+          const beamGeo = new THREE.ConeGeometry(1.6, 9, 16);
+          beamGeo.rotateX(dir > 0 ? Math.PI / 2 : -Math.PI / 2);
+          const beam = new THREE.Mesh(beamGeo, this.materials.headlightBeamMaterial);
+          beam.position.set(hx, 0.9, cabZ + dir * 5.5);
+          train.add(beam);
+        }
+      });
+
+      // Red Tail Marker LEDs
+      [-0.9, 0.9].forEach((tx) => {
+        const tail = new THREE.Mesh(
+          new THREE.SphereGeometry(0.1, 8, 8),
+          this.materials.tailLightMaterial
+        );
+        tail.position.set(tx, height - 0.45, cabZ + dir * 1.85);
+        train.add(tail);
+      });
+    });
+
+    // 3. Roof Anti-Slip Walkway with Tread & Guardrails
     const roofGeo = new THREE.BoxGeometry(width - 0.2, 0.1, length);
-    const roofMat = this.materials.railSteelMaterial;
-    const roof = new THREE.Mesh(roofGeo, roofMat);
+    const roof = new THREE.Mesh(roofGeo, this.materials.roofTreadMaterial);
     roof.position.y = height;
     train.add(roof);
 
-    // Front Cab Windshield
-    const cabGeo = new THREE.BoxGeometry(width - 0.4, 1.2, 0.4);
-    const cabMat = this.materials.buildingGlassMaterial;
-    const cab = new THREE.Mesh(cabGeo, cabMat);
-    cab.position.set(0, height - 1.2, length / 2 + 0.1);
-    train.add(cab);
+    // Roof Air Conditioning Pods & Aerodynamic Cowlings
+    [-3.5, 3.5].forEach((acZ) => {
+      const acGeo = new THREE.BoxGeometry(1.8, 0.35, 2.2);
+      const acPod = new THREE.Mesh(acGeo, this.materials.bogieSteelMaterial);
+      acPod.position.set(0, height + 0.2, acZ);
+      train.add(acPod);
+    });
 
-    // Side & Rear Climbing Ladders / Grab Handles
-    // Left & right ladders allow smooth climbing onto roof from either side!
-    const ladderMat = this.materials.hazardMaterial;
+    // High-Voltage Diamond Roof Pantograph (Center)
+    const pantograph = new THREE.Group();
+    pantograph.position.set(0, height + 0.1, 0);
+
+    const baseFrame = new THREE.Mesh(
+      new THREE.BoxGeometry(1.4, 0.08, 1.8),
+      this.materials.pantographMaterial
+    );
+    pantograph.add(baseFrame);
+
+    // Articulated Diamond Arms
+    const armGeo = new THREE.CylinderGeometry(0.025, 0.025, 0.9, 6);
+    [-0.5, 0.5].forEach((px) => {
+      const armL = new THREE.Mesh(armGeo, this.materials.pantographMaterial);
+      armL.position.set(px, 0.4, -0.4);
+      armL.rotation.x = 0.5;
+
+      const armU = new THREE.Mesh(armGeo, this.materials.pantographMaterial);
+      armU.position.set(px, 0.95, -0.15);
+      armU.rotation.x = -0.5;
+
+      pantograph.add(armL, armU);
+    });
+
+    // Contact Shoe
+    const shoe = new THREE.Mesh(
+      new THREE.BoxGeometry(1.8, 0.04, 0.18),
+      this.materials.bogieSteelMaterial
+    );
+    shoe.position.set(0, 1.35, 0);
+    pantograph.add(shoe);
+    train.add(pantograph);
+
+    // 4. Two 2-Axle Steel Wheel Bogies on Rails
+    const bogieFront = this.createWheelBogie(false);
+    bogieFront.position.set(0, 0, -5);
+    const bogieRear = this.createWheelBogie(false);
+    bogieRear.position.set(0, 0, 5);
+    train.add(bogieFront, bogieRear);
+
+    // 5. High-Visibility Side & Rear Climbing Ladders
     const rungGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.7, 6);
     rungGeo.rotateZ(Math.PI / 2);
 
-    // Left and Right Ladders
     [-1, 1].forEach((side) => {
       const ladderX = side * (width / 2 + 0.04);
-      // Place ladders at mid and rear sections of train
-      [-3.5, 3.5].forEach((ladderZ) => {
-        // Vertical side rails
+      [-3.8, 3.8].forEach((ladderZ) => {
         const railGeo = new THREE.CylinderGeometry(0.03, 0.03, height, 6);
         const rail1 = new THREE.Mesh(railGeo, this.materials.railSteelMaterial);
         rail1.position.set(ladderX, height / 2, ladderZ - 0.35);
@@ -498,33 +734,253 @@ export class WorldChunk {
         rail2.position.z = ladderZ + 0.35;
         train.add(rail1, rail2);
 
-        // Horizontal rungs from ground up to roof
         for (let y = 0.6; y <= height; y += 0.5) {
-          const rung = new THREE.Mesh(rungGeo, ladderMat);
+          const rung = new THREE.Mesh(rungGeo, this.materials.hazardMaterial);
           rung.position.set(ladderX, y, ladderZ);
           train.add(rung);
         }
 
-        // Top grab handle arched over the roof
-        const handleGeo = new THREE.BoxGeometry(0.12, 0.25, 0.8);
-        const handle = new THREE.Mesh(handleGeo, this.materials.hazardMaterial);
+        const handle = new THREE.Mesh(
+          new THREE.BoxGeometry(0.12, 0.25, 0.8),
+          this.materials.hazardMaterial
+        );
         handle.position.set(ladderX, height + 0.12, ladderZ);
         train.add(handle);
       });
     });
 
     // Rear End Climbing Ladder
-    const rearZ = -length / 2 - 0.04;
+    const rearZ = length / 2 + 0.04;
     for (let y = 0.6; y <= height; y += 0.5) {
-      const rearRung = new THREE.Mesh(rungGeo, ladderMat);
+      const rearRung = new THREE.Mesh(rungGeo, this.materials.hazardMaterial);
       rearRung.position.set(0, y, rearZ);
       train.add(rearRung);
     }
 
-    // Lock train rotation strictly - train is 100% rigid and will never tilt, shake or derail
+    // Rigid zero-tilt balance
     train.rotation.set(0, 0, 0);
-
     return train;
+  }
+
+  private createFreightCargoTrainMesh(isMoving: boolean): THREE.Group {
+    const train = new THREE.Group();
+    const length = 18;
+    const height = 3.8;
+    const width = 2.7;
+
+    // 1. Heavy Steel Locomotive / Well-Car Flatbed Chassis
+    const chassisGeo = new THREE.BoxGeometry(width, 0.45, length);
+    const chassis = new THREE.Mesh(chassisGeo, this.materials.bogieSteelMaterial);
+    chassis.position.y = 0.75;
+    chassis.castShadow = true;
+    train.add(chassis);
+
+    // Hazard striped sill skirts along chassis sides
+    [-1, 1].forEach((side) => {
+      const skirt = new THREE.Mesh(
+        new THREE.BoxGeometry(0.08, 0.3, length),
+        this.materials.hazardMaterial
+      );
+      skirt.position.set(side * (width / 2 + 0.02), 0.7, 0);
+      train.add(skirt);
+    });
+
+    // 2. Heavy Front Cowcatcher Pilot Wedge
+    const cowcatcher = new THREE.Mesh(
+      new THREE.BoxGeometry(width + 0.1, 0.75, 1.1),
+      this.materials.hazardMaterial
+    );
+    cowcatcher.position.set(0, 0.5, length / 2 + 0.3);
+    cowcatcher.castShadow = true;
+    train.add(cowcatcher);
+
+    // 3. Stacked Intermodal Shipping Containers
+    // Container 1: Front (Blue / Orange ISO Container with corrugated texture)
+    const c1Mat = Math.random() < 0.5 ? this.materials.cargoBlueMaterial : this.materials.cargoOrangeMaterial;
+    const c1Geo = new THREE.BoxGeometry(width - 0.15, 2.7, 7.8);
+    const container1 = new THREE.Mesh(c1Geo, c1Mat);
+    container1.position.set(0, 2.35, 4.3);
+    container1.castShadow = true;
+    container1.receiveShadow = true;
+    train.add(container1);
+
+    // Container 2: Rear (Green / Red ISO Container)
+    const c2Mat = Math.random() < 0.5 ? this.materials.cargoGreenMaterial : this.materials.cargoRedMaterial;
+    const container2 = new THREE.Mesh(c1Geo, c2Mat);
+    container2.position.set(0, 2.35, -4.3);
+    container2.castShadow = true;
+    container2.receiveShadow = true;
+    train.add(container2);
+
+    // Heavy ISO corner twist locks & structural posts
+    [-1, 1].forEach((cx) => {
+      [-8.2, -0.4, 0.4, 8.2].forEach((cz) => {
+        const post = new THREE.Mesh(
+          new THREE.BoxGeometry(0.25, 2.8, 0.25),
+          this.materials.bogieSteelMaterial
+        );
+        post.position.set(cx * (width / 2 - 0.08), 2.35, cz);
+        train.add(post);
+      });
+    });
+
+    // 4. Heavy Diesel Exhaust Stacks & Dual Air Horns
+    const stackGeo = new THREE.CylinderGeometry(0.18, 0.18, 1.2, 8);
+    [-0.5, 0.5].forEach((hx) => {
+      const stack = new THREE.Mesh(stackGeo, this.materials.railSteelMaterial);
+      stack.position.set(hx, height + 0.4, 7.2);
+      train.add(stack);
+    });
+
+    // 5. High-Mounted Twin Locomotive Spotlights & Forward Beam
+    [-0.55, 0.55].forEach((lx) => {
+      const lamp = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.22, 0.22, 0.35, 12).rotateX(Math.PI / 2),
+        this.materials.bogieSteelMaterial
+      );
+      lamp.position.set(lx, 2.9, length / 2 + 0.6);
+
+      const lens = new THREE.Mesh(
+        new THREE.SphereGeometry(0.2, 12, 12),
+        this.materials.headlightLensMaterial
+      );
+      lens.position.set(0, 0, 0.15);
+      lamp.add(lens);
+      train.add(lamp);
+
+      // Volumetric Beam Cone
+      const beamGeo = new THREE.ConeGeometry(2.0, 11, 16);
+      beamGeo.rotateX(Math.PI / 2);
+      const beam = new THREE.Mesh(beamGeo, this.materials.headlightBeamMaterial);
+      beam.position.set(lx, 2.2, length / 2 + 6.0);
+      train.add(beam);
+    });
+
+    // 6. Two Heavy-Duty 3-Axle Freight Bogies
+    const bogieFront = this.createWheelBogie(true);
+    bogieFront.position.set(0, 0, -5.5);
+    const bogieRear = this.createWheelBogie(true);
+    bogieRear.position.set(0, 0, 5.5);
+    train.add(bogieFront, bogieRear);
+
+    // 7. Climbing Ladders & End Walkways
+    const rungGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.7, 6);
+    rungGeo.rotateZ(Math.PI / 2);
+
+    [-1, 1].forEach((side) => {
+      const ladderX = side * (width / 2 + 0.04);
+      [-4.0, 4.0].forEach((ladderZ) => {
+        for (let y = 0.8; y <= height; y += 0.5) {
+          const rung = new THREE.Mesh(rungGeo, this.materials.hazardMaterial);
+          rung.position.set(ladderX, y, ladderZ);
+          train.add(rung);
+        }
+      });
+    });
+
+    // Rear Ladder
+    const rearZ = length / 2 + 0.1;
+    for (let y = 0.8; y <= height; y += 0.5) {
+      const rearRung = new THREE.Mesh(rungGeo, this.materials.hazardMaterial);
+      rearRung.position.set(0, y, rearZ);
+      train.add(rearRung);
+    }
+
+    // Rigid zero-tilt balance
+    train.rotation.set(0, 0, 0);
+    return train;
+  }
+
+  private createCommuterTrainMesh(isMoving: boolean): THREE.Group {
+    const train = new THREE.Group();
+    const length = 15;
+    const height = 3.6;
+    const width = 2.6;
+
+    // 1. Stainless Steel Fluted Carriage Body
+    const bodyGeo = new THREE.BoxGeometry(width, height - 0.7, length);
+    const body = new THREE.Mesh(bodyGeo, this.materials.commuterStainlessMaterial);
+    body.position.y = (height - 0.7) / 2 + 0.6;
+    body.castShadow = true;
+    body.receiveShadow = true;
+    train.add(body);
+
+    // 2. Ribbed Roof with Anti-Slip Tread & Fans
+    const roofGeo = new THREE.BoxGeometry(width - 0.2, 0.12, length);
+    const roof = new THREE.Mesh(roofGeo, this.materials.roofTreadMaterial);
+    roof.position.y = height;
+    train.add(roof);
+
+    [-4, 0, 4].forEach((fz) => {
+      const fanGeo = new THREE.CylinderGeometry(0.65, 0.65, 0.18, 12);
+      const fan = new THREE.Mesh(fanGeo, this.materials.bogieSteelMaterial);
+      fan.position.set(0, height + 0.12, fz);
+      train.add(fan);
+    });
+
+    // 3. Front Cab Sealed-Beam Headlights + Amber Ditch Lights
+    [-0.65, 0.65].forEach((hx) => {
+      const lamp = new THREE.Mesh(
+        new THREE.SphereGeometry(0.18, 10, 10),
+        this.materials.headlightLensMaterial
+      );
+      lamp.position.set(hx, 1.3, length / 2 + 0.05);
+      train.add(lamp);
+
+      // Forward Beam
+      const beamGeo = new THREE.ConeGeometry(1.6, 9, 16);
+      beamGeo.rotateX(Math.PI / 2);
+      const beam = new THREE.Mesh(beamGeo, this.materials.headlightBeamMaterial);
+      beam.position.set(hx, 1.0, length / 2 + 5.0);
+      train.add(beam);
+    });
+
+    // Amber lower ditch lights
+    [-0.95, 0.95].forEach((dx) => {
+      const ditch = new THREE.Mesh(
+        new THREE.SphereGeometry(0.12, 8, 8),
+        new THREE.MeshBasicMaterial({ color: 0xfbbf24 })
+      );
+      ditch.position.set(dx, 0.75, length / 2 + 0.05);
+      train.add(ditch);
+    });
+
+    // 4. Two 2-Axle Bogie Trucks
+    const bogieFront = this.createWheelBogie(false);
+    bogieFront.position.set(0, 0, -4.8);
+    const bogieRear = this.createWheelBogie(false);
+    bogieRear.position.set(0, 0, 4.8);
+    train.add(bogieFront, bogieRear);
+
+    // 5. Ladders on sides and rear
+    const rungGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.7, 6);
+    rungGeo.rotateZ(Math.PI / 2);
+
+    [-1, 1].forEach((side) => {
+      const ladderX = side * (width / 2 + 0.04);
+      [-3.5, 3.5].forEach((ladderZ) => {
+        for (let y = 0.6; y <= height; y += 0.5) {
+          const rung = new THREE.Mesh(rungGeo, this.materials.hazardMaterial);
+          rung.position.set(ladderX, y, ladderZ);
+          train.add(rung);
+        }
+      });
+    });
+
+    const rearZ = length / 2 + 0.05;
+    for (let y = 0.6; y <= height; y += 0.5) {
+      const rearRung = new THREE.Mesh(rungGeo, this.materials.hazardMaterial);
+      rearRung.position.set(0, y, rearZ);
+      train.add(rearRung);
+    }
+
+    // Rigid zero-tilt balance
+    train.rotation.set(0, 0, 0);
+    return train;
+  }
+
+  private createTrainMesh(isMoving: boolean): THREE.Group {
+    return this.createModernMetroTrainMesh(isMoving, 'cyan');
   }
 
   private createCartoonHollowTrainMesh(isMoving: boolean): THREE.Group {
@@ -545,14 +1001,9 @@ export class WorldChunk {
     floor.receiveShadow = true;
     train.add(floor);
 
-    // 2. Carriage Roof (walkway on top too!)
+    // 2. Carriage Roof (walkway on top too with anti-slip tread!)
     const roofGeo = new THREE.BoxGeometry(width - 0.1, 0.2, length);
-    const roofMat = new THREE.MeshStandardMaterial({
-      color: 0x0284c7, // Vibrant cartoon cyan roof
-      roughness: 0.4,
-      metalness: 0.3,
-    });
-    const roof = new THREE.Mesh(roofGeo, roofMat);
+    const roof = new THREE.Mesh(roofGeo, this.materials.roofTreadMaterial);
     roof.position.y = height;
     roof.castShadow = true;
     train.add(roof);
@@ -646,7 +1097,7 @@ export class WorldChunk {
       train.add(lantern);
     });
 
-    // Rear Entrance Sign: "CARTOON TRAIN - ENTER REAR"
+    // Rear Entrance Sign: "CARTOON EXPRESS - ENTER REAR"
     const signBoard = new THREE.Mesh(
       new THREE.BoxGeometry(2.4, 0.45, 0.1),
       new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.3 })
@@ -727,6 +1178,13 @@ export class WorldChunk {
     exitRamp.position.set(0, 0.14, frontZ - 0.6);
     exitRamp.rotation.x = 0.18; // Slopes down to rails
     train.add(exitRamp);
+
+    // 7. Mechanical 2-Axle Bogies on Rails
+    const bogieFront = this.createWheelBogie(false);
+    bogieFront.position.set(0, 0, -5.5);
+    const bogieRear = this.createWheelBogie(false);
+    bogieRear.position.set(0, 0, 5.5);
+    train.add(bogieFront, bogieRear);
 
     // Strict zero-tilt balance
     train.rotation.set(0, 0, 0);
